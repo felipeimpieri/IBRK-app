@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cartera IBKR — Felipe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  /* ===== theme tokens — flat, minimal, dark-first (Linear/Vercel/Raycast register) ===== */
+  :root {
+    color-scheme: dark;
+    --page:           #08090a;
+    --surface-1:      #0f1011;
+    --surface-2:      #151617;
+    --text-primary:   #f2f2f2;
+    --text-secondary: #9a9a9c;
+    --text-muted:     #6b6b6e;
+    --gridline:       #1e1f21;
+    --baseline:       #2a2b2d;
+    --border:         #1c1d1f;
+    --border-hover:   #292a2d;
+    --accent:         #6e6bfa;
+    --accent-soft:    rgba(110,107,250,0.14);
+    --good:           #34c77b;
+    --bad:            #f0555a;
+    --series-1:       #6e6bfa;
+    --series-1-soft:  rgba(110,107,250,0.14);
+    --s1: #6e6bfa; --s2: #e08a3e; --s3: #34b88a; --s4: #d6ae3c;
+    --s5: #e0699a; --s6: #4fb3e0; --s7: #a06ee0; --s8: #e05a5a;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.28);
+    --shadow-md: 0 8px 24px -8px rgba(0,0,0,0.4);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:where(:not([data-theme="dark"])) {
+      color-scheme: light;
+      --page:           #ffffff;
+      --surface-1:      #ffffff;
+      --surface-2:      #fafafa;
+      --text-primary:   #101113;
+      --text-secondary: #5c5d61;
+      --text-muted:     #94959a;
+      --gridline:       #ececed;
+      --baseline:       #d8d8da;
+      --border:         #e6e6e8;
+      --border-hover:   #d5d5d8;
+      --accent:         #5350e0;
+      --accent-soft:    rgba(83,80,224,0.08);
+      --good:           #16874f;
+      --bad:            #cc2f38;
+      --series-1:       #5350e0;
+      --series-1-soft:  rgba(83,80,224,0.10);
+      --s1: #5350e0; --s2: #c96a1f; --s3: #17916b; --s4: #ad8419;
+      --s5: #c94c80; --s6: #2087b3; --s7: #7a4fc9; --s8: #c93f3f;
+      --shadow-sm: 0 1px 2px rgba(15,15,20,0.06);
+      --shadow-md: 0 8px 20px -8px rgba(15,15,20,0.12);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --page:           #ffffff;
+    --surface-1:      #ffffff;
+    --surface-2:      #fafafa;
+    --text-primary:   #101113;
+    --text-secondary: #5c5d61;
+    --text-muted:     #94959a;
+    --gridline:       #ececed;
+    --baseline:       #d8d8da;
+    --border:         #e6e6e8;
+    --border-hover:   #d5d5d8;
+    --accent:         #5350e0;
+    --accent-soft:    rgba(83,80,224,0.08);
+    --good:           #16874f;
+    --bad:            #cc2f38;
+    --series-1:       #5350e0;
+    --series-1-soft:  rgba(83,80,224,0.10);
+    --s1: #5350e0; --s2: #c96a1f; --s3: #17916b; --s4: #ad8419;
+    --s5: #c94c80; --s6: #2087b3; --s7: #7a4fc9; --s8: #c93f3f;
+    --shadow-sm: 0 1px 2px rgba(15,15,20,0.06);
+    --shadow-md: 0 8px 20px -8px rgba(15,15,20,0.12);
+  }
+  :root[data-theme="dark"] { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 48px 24px 100px; }
+
+  header.top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 44px; flex-wrap: wrap; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;
+    letter-spacing: -0.02em; flex-shrink: 0; box-shadow: var(--shadow-sm);
+  }
+  header.top h1 { font-size: 14.5px; font-weight: 600; margin: 0; letter-spacing: -0.005em; color: var(--text-primary); }
+  header.top .sub { color: var(--text-muted); font-size: 12.5px; margin-top: 3px; }
+  .theme-btn {
+    color: var(--text-secondary); background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 7px 14px; font-size: 12.5px; cursor: pointer; font-family: inherit;
+    transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .theme-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
+  .theme-btn:active { transform: translateY(1px); }
+
+  .hero {
+    padding: 28px 32px; margin-bottom: 32px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 18px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(480px 200px at 0% 0%, var(--accent-soft), transparent 70%);
+    opacity: 0.7;
+  }
+  .hero > * { position: relative; }
+  .hero .label { color: var(--text-muted); font-size: 12.5px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .hero .figure { font-size: 46px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-family: var(--mono); }
+  .hero .delta { font-size: 13px; font-weight: 600; margin-top: 16px; font-family: var(--mono); display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 10px; border-radius: 20px; }
+  .hero .delta.pos { background: rgba(52,199,123,0.12); color: var(--good); }
+  .hero .delta.neg { background: rgba(240,85,90,0.12); color: var(--bad); }
+  .hero .delta .muted { color: var(--text-muted); font-weight: 400; margin-left: 4px; font-family: var(--sans); }
+  .hero .meta { text-align: right; color: var(--text-muted); font-size: 12.5px; max-width: 220px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; margin-bottom: 32px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm); }
+  .tile { background: var(--surface-1); padding: 18px 20px; transition: background 0.15s ease; }
+  .tile .t-label { font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; }
+  .tile .t-value { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; font-family: var(--mono); }
+  .tile .t-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; }
+
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md);
+    padding: 24px 26px 20px; margin-bottom: 24px; box-shadow: var(--shadow-sm);
+  }
+  .card h2 { font-size: 13.5px; font-weight: 600; margin: 0 0 3px; letter-spacing: -0.005em; }
+  .card .card-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 18px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* performance chart */
+  .perf-wrap { position: relative; }
+  .perf-tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--surface-2); color: var(--text-primary);
+    border: 1px solid var(--border-hover);
+    font-size: 11.5px; font-family: var(--mono); padding: 6px 10px; border-radius: 6px; transform: translate(-50%, -125%);
+    white-space: nowrap; opacity: 0; transition: opacity 0.08s; z-index: 5;
+  }
+  .perf-range { display: flex; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
+  .perf-range span {
+    font-size: 11px; color: var(--text-muted); padding: 4px 10px; font-family: var(--mono);
+    border: 1px solid var(--border); border-radius: 6px;
+  }
+
+  /* bar charts */
+  .barchart .row { display: grid; grid-template-columns: 150px 1fr 50px; align-items: center; gap: 10px; margin: 12px 0; }
+  .barchart .row .name { font-size: 12.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .barchart .row .bar-bg { background: var(--gridline); border-radius: 2px; height: 6px; overflow: hidden; }
+  .barchart .row .bar-fill { height: 100%; border-radius: 2px; }
+  .barchart .row .pct { font-size: 12px; font-weight: 500; text-align: right; font-family: var(--mono); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: right; font-weight: 500; color: var(--text-muted); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 0 10px 12px; border-bottom: 1px solid var(--border);
+  }
+  thead th:first-child, thead th:nth-child(2) { text-align: left; }
+  tbody td { padding: 12px 10px; text-align: right; border-bottom: 1px solid var(--gridline); font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  tbody td:first-child, tbody td:nth-child(2) { text-align: left; font-family: var(--sans); font-size: 13px; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s ease; }
+  tbody tr:hover { background: var(--surface-2); }
+  .ticker-pill {
+    display: inline-flex; font-weight: 700; font-family: var(--mono); font-size: 11.5px;
+    background: var(--accent-soft); color: var(--accent); padding: 2px 7px; border-radius: 6px; letter-spacing: 0.01em;
+  }
+  .name-sub { color: var(--text-muted); font-size: 11.5px; display: block; font-family: var(--sans); margin-top: 3px; }
+  .pos { color: var(--good); }
+  .neg { color: var(--bad); }
+  .table-scroll { overflow-x: auto; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 11.5px; margin-top: 36px; line-height: 1.8; border-top: 1px solid var(--border); padding-top: 24px; }
+  footer a { color: var(--text-secondary); }
+
+  /* ===== section dividers + simulator/recommendations ===== */
+  .section-heading {
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-primary); margin: 52px 0 18px; padding-top: 28px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 9px;
+  }
+  .section-heading::before { content: ''; width: 4px; height: 13px; background: var(--accent); border-radius: 2px; }
+  .section-heading:first-of-type { margin-top: 0; }
+
+  .disclaimer {
+    font-size: 11.5px; color: var(--text-muted); line-height: 1.6; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 18px;
+  }
+
+  .insight-list { display: flex; flex-direction: column; gap: 10px; }
+  .insight-item { font-size: 13px; color: var(--text-secondary); line-height: 1.55; padding-left: 14px; border-left: 2px solid var(--accent-soft); }
+  .insight-item b { color: var(--text-primary); font-weight: 600; }
+
+  .quiz-group { margin-bottom: 20px; }
+  .quiz-group .q-label { font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: inherit; font-size: 12.5px; color: var(--text-secondary); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 20px; padding: 7px 14px; cursor: pointer;
+    transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease, transform 0.1s ease;
+  }
+  .chip:hover { border-color: var(--border-hover); color: var(--text-primary); transform: translateY(-1px); }
+  .chip.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  .btn-primary {
+    font-family: inherit; font-size: 13px; font-weight: 600; color: #fff; background: var(--accent);
+    border: none; border-radius: var(--radius-sm); padding: 10px 20px; cursor: pointer;
+    transition: opacity 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
+    box-shadow: 0 4px 14px -4px rgba(110,107,250,0.5);
+  }
+  .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 6px 18px -4px rgba(110,107,250,0.6); }
+  .btn-primary:active { transform: translateY(0); }
+  .ideas-note { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+
+  .idea-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .idea-card {
+    border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; background: var(--surface-2);
+    transition: border-color 0.15s ease, transform 0.15s ease; box-shadow: var(--shadow-sm);
+  }
+  .idea-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .idea-card .idea-tag { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+  .idea-card .idea-title { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; }
+  .idea-card .idea-desc { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+
+  .sim-delta { font-size: 11px; font-family: var(--mono); }
+
+  /* ===== auth screen (funcional, placeholder — el diseño final lo define Design) ===== */
+  #app-root { display: none; }
+  .auth-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .auth-card {
+    width: 100%; max-width: 380px; background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: 32px 28px;
+  }
+  .auth-card form { display: flex; flex-direction: column; gap: 14px; margin-bottom: 4px; }
+  .auth-card label { font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; }
+  .auth-card input {
+    font-family: inherit; font-size: 13.5px; color: var(--text-primary); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; outline: none;
+    transition: border-color 0.12s ease;
+  }
+  .auth-card input:focus { border-color: var(--accent); }
+  .auth-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0; color: var(--text-muted); font-size: 11.5px; }
+  .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .btn-google {
+    width: 100%; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-primary);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 16px; cursor: pointer; transition: border-color 0.12s ease, transform 0.1s ease;
+  }
+  .btn-google:hover { border-color: var(--border-hover); }
+  .auth-switch { text-align: center; font-size: 12.5px; color: var(--text-muted); margin-top: 18px; }
+  .auth-switch a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  .auth-switch a:hover { text-decoration: underline; }
+  .auth-message {
+    font-size: 12.5px; line-height: 1.5; padding: 10px 12px; border-radius: var(--radius-sm);
+    margin-bottom: 16px; border: 1px solid;
+  }
+  .auth-message.error { background: rgba(240,85,90,0.1); border-color: rgba(240,85,90,0.3); color: var(--bad); }
+  .auth-message.ok { background: rgba(52,199,123,0.1); border-color: rgba(52,199,123,0.3); color: var(--good); }
+  .user-box { display: flex; align-items: center; gap: 10px; }
+  .user-email { font-size: 12px; color: var(--text-muted); }
+  .empty-state {
+    text-align: center; padding: 60px 24px; color: var(--text-secondary); font-size: 13.5px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="brand" style="justify-content:center; margin-bottom:24px;">
+      <div class="brand-mark">C</div>
+      <h1 style="font-size:16px; margin:0;">Cartera</h1>
+    </div>
+    <div class="auth-message" id="auth-message" style="display:none;"></div>
+
+    <form id="login-form">
+      <label>Email <input type="email" id="login-email" required autocomplete="email"></label>
+      <label>Contraseña <input type="password" id="login-password" required autocomplete="current-password"></label>
+      <button type="submit" class="btn-primary" style="width:100%;">Iniciar sesión</button>
+    </form>
+
+    <form id="signup-form" style="display:none;">
+      <label>Email <input type="email" id="signup-email" required autocomplete="email"></label>
+      <label>Contraseña <input type="password" id="signup-password" required autocomplete="new-password" minlength="6"></label>
+      <button type="submit" class="btn-primary" style="width:100%;">Crear cuenta</button>
+    </form>
+
+    <div class="auth-divider"><span>o</span></div>
+    <button type="button" class="btn-google" id="google-btn">Continuar con Google</button>
+
+    <div class="auth-switch">
+      <span id="to-signup">¿No tenés cuenta? <a id="to-signup-link">Registrate</a></span>
+      <span id="to-login" style="display:none;">¿Ya tenés cuenta? <a id="to-login-link">Iniciá sesión</a></span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap viz-root" id="app-root">
+
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark">C</div>
+      <div>
+        <h1>Cartera IBKR — Felipe</h1>
+        <div class="sub" id="updated-sub">Cargando…</div>
+      </div>
+    </div>
+    <div class="user-box">
+      <span class="user-email" id="user-email"></span>
+      <button class="theme-btn" id="logout-btn" type="button">Cerrar sesión</button>
+      <button class="theme-btn" id="theme-toggle" type="button">Modo oscuro</button>
+    </div>
+  </header>
+
+  <section class="hero" id="hero">
+    <div>
+      <div class="label">Valor total de la cartera (IBKR)</div>
+      <div class="figure" id="hero-value">—</div>
+      <div class="delta" id="hero-delta">—</div>
+    </div>
+    <div class="meta" id="hero-meta"></div>
+  </section>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section class="card">
+    <h2>Rendimiento acumulado — año en curso</h2>
+    <div class="card-sub">Retorno TWR (time-weighted), ajustado por depósitos/retiros de efectivo</div>
+    <div class="perf-wrap">
+      <svg id="perf-chart" viewBox="0 0 900 260" preserveAspectRatio="none" style="width:100%;height:260px;display:block;"></svg>
+      <div class="perf-tooltip" id="perf-tooltip"></div>
+    </div>
+    <div class="perf-range" id="perf-range"></div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <h2>Asignación por clase de activo</h2>
+      <div class="card-sub">% del valor total de la cartera</div>
+      <div class="barchart" id="chart-asset-class"></div>
+    </div>
+    <div class="card">
+      <h2>Asignación por país</h2>
+      <div class="card-sub">% del valor total de la cartera</div>
+      <div class="barchart" id="chart-country"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Asignación por sector</h2>
+    <div class="card-sub">% del valor total de la cartera</div>
+    <div class="barchart" id="chart-sector"></div>
+  </section>
+
+  <section class="card">
+    <h2>Posiciones actuales</h2>
+    <div class="card-sub" id="positions-sub"></div>
+    <div class="table-scroll">
+      <table id="positions-table">
+        <thead>
+          <tr>
+            <th>Ticker</th><th>Cantidad</th><th>Precio prom.</th><th>Precio actual</th>
+            <th>Valor de mercado</th><th>P&amp;L no realizado</th><th>P&amp;L diario</th><th>% cartera</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Operaciones recientes</h2>
+    <div class="card-sub">Compras/ventas ejecutadas en IBKR (últimos ~12 meses con datos disponibles)</div>
+    <div class="table-scroll">
+      <table id="trades-table">
+        <thead>
+          <tr><th>Fecha</th><th>Tipo</th><th>Ticker</th><th>Cantidad</th><th>Precio</th><th>Comisión</th><th>Monto neto</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="section-heading">Simulador — ¿qué hubiera pasado?</div>
+
+  <section class="card">
+    <h2>Comparación contra benchmarks</h2>
+    <div class="card-sub">Mismo monto, mismo día, puesto en SPY / QQQ / Bitcoin en vez de lo que compraste — llevado a precios de hoy. Cálculo simplificado: no incluye dividendos reinvertidos de los benchmarks ni fees de esa comparación hipotética.</div>
+    <div class="tiles" id="sim-tiles" style="margin-bottom:24px;"></div>
+    <div class="barchart" id="sim-barchart"></div>
+  </section>
+
+  <section class="card">
+    <h2>Detalle por posición</h2>
+    <div class="card-sub" id="sim-excluded"></div>
+    <div class="table-scroll">
+      <table id="sim-table">
+        <thead>
+          <tr><th>Ticker</th><th>Invertido</th><th>Valor real hoy</th><th>Si SPY</th><th>Si QQQ</th><th>Si Bitcoin</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="section-heading">Recomendaciones</div>
+
+  <div class="disclaimer">Esto es una herramienta educativa para explorar ideas a partir de tu cartera actual — no es asesoramiento financiero personalizado ni una recomendación de compra o venta. Son puntos de partida genéricos para que investigues por tu cuenta.</div>
+
+  <section class="card">
+    <h2>Perfil inferido de tu cartera actual</h2>
+    <div class="card-sub">Calculado automáticamente a partir de tu asignación y posiciones de hoy</div>
+    <div class="insight-list" id="profile-insights"></div>
+  </section>
+
+  <section class="card">
+    <h2>Afiná tu perfil</h2>
+    <div class="card-sub">Respondé para ajustar las ideas de abajo a tu gusto — no se guarda en ningún lado, es solo de esta sesión</div>
+    <div class="quiz-group">
+      <div class="q-label">Tolerancia al riesgo</div>
+      <div class="chip-row" data-quiz="risk">
+        <button class="chip" data-value="conservador" type="button">Conservador</button>
+        <button class="chip" data-value="moderado" type="button">Moderado</button>
+        <button class="chip" data-value="agresivo" type="button">Agresivo</button>
+      </div>
+    </div>
+    <div class="quiz-group">
+      <div class="q-label">Horizonte de inversión</div>
+      <div class="chip-row" data-quiz="horizon">
+        <button class="chip" data-value="corto" type="button">Corto (&lt;1 año)</button>
+        <button class="chip" data-value="mediano" type="button">Mediano (1–5 años)</button>
+        <button class="chip" data-value="largo" type="button">Largo (5+ años)</button>
+      </div>
+    </div>
+    <div class="quiz-group">
+      <div class="q-label">Temáticas de interés (elegí una o más)</div>
+      <div class="chip-row" data-quiz="themes" data-multi="true">
+        <button class="chip" data-value="tech" type="button">Tecnología</button>
+        <button class="chip" data-value="dividends" type="button">Dividendos / income</button>
+        <button class="chip" data-value="crypto" type="button">Cripto</button>
+        <button class="chip" data-value="smallcaps" type="button">Small caps</button>
+        <button class="chip" data-value="intl" type="button">Internacional</button>
+        <button class="chip" data-value="value" type="button">Value</button>
+        <button class="chip" data-value="esg" type="button">Sustentabilidad / ESG</button>
+        <button class="chip" data-value="bonds" type="button">Renta fija</button>
+      </div>
+    </div>
+    <button class="btn-primary" id="quiz-submit" type="button">Ver ideas</button>
+  </section>
+
+  <section class="card">
+    <h2>Ideas para explorar</h2>
+    <div class="ideas-note" id="ideas-note"></div>
+    <div class="idea-grid" id="idea-grid"></div>
+  </section>
+
+  <section class="card">
+    <h2>Posibles ajustes a considerar</h2>
+    <div class="card-sub">Lectura automática de concentración y solapamiento en tu cartera actual</div>
+    <div class="insight-list" id="adjustment-insights"></div>
+  </section>
+
+  <footer>
+    Datos en vivo desde Interactive Brokers, leídos por Claude. No incluye la cuenta de Schwab (trading activo, se maneja aparte).<br>
+    Esta página es una herramienta de organización personal — no es asesoramiento financiero, legal ni impositivo.<br>
+    Última actualización: <span id="footer-updated">—</span>
+  </footer>
+</div>
+
+<script>
+const CAT = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function fmtUSD(n, opts) {
+  return new Intl.NumberFormat('en-US', Object.assign({style:'currency', currency:'USD', maximumFractionDigits:0}, opts||{})).format(n);
+}
+function fmtUSD2(n) { return new Intl.NumberFormat('en-US', {style:'currency', currency:'USD', maximumFractionDigits:2}).format(n); }
+function fmtPct(n, digits) { return (n>=0?'+':'') + (n*100).toFixed(digits==null?1:digits) + '%'; }
+function fmtShare(n, digits) { return (n*100).toFixed(digits==null?1:digits) + '%'; }
+function fmtNum(n) { return new Intl.NumberFormat('en-US', {maximumFractionDigits: 4}).format(n); }
+function deltaClass(n) { return n >= 0 ? 'pos' : 'neg'; }
+function fmtDate(yyyymmdd) {
+  const y = yyyymmdd.slice(0,4), m = yyyymmdd.slice(4,6), d = yyyymmdd.slice(6,8);
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return d + ' ' + meses[parseInt(m,10)-1];
+}
+
+function setTheme(mode) {
+  if (mode === 'system') {
+    document.documentElement.removeAttribute('data-theme');
+    try { localStorage.removeItem('theme'); } catch(e) {}
+  } else {
+    document.documentElement.setAttribute('data-theme', mode);
+    try { localStorage.setItem('theme', mode); } catch(e) {}
+  }
+  // dark is the default look; only an explicit OS light-preference (or an explicit choice) flips it
+  const isDark = mode === 'dark' || (mode === 'system' && !window.matchMedia('(prefers-color-scheme: light)').matches);
+  document.getElementById('theme-toggle').textContent = isDark ? 'Modo claro' : 'Modo oscuro';
+}
+(function initTheme(){
+  let saved = null;
+  try { saved = localStorage.getItem('theme'); } catch(e) {}
+  setTheme(saved || 'system');
+})();
+document.getElementById('theme-toggle').addEventListener('click', function(){
+  const current = document.documentElement.getAttribute('data-theme') ||
+    (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  setTheme(current === 'dark' ? 'light' : 'dark');
+  renderAll();
+});
+
+let DATA = null;
+
+function renderHero() {
+  const s = DATA.summary;
+  document.getElementById('hero-value').textContent = fmtUSD2(s.net_liquidation);
+  const dEl = document.getElementById('hero-delta');
+  dEl.className = 'delta ' + deltaClass(s.daily_pnl);
+  dEl.innerHTML = (s.daily_pnl >= 0 ? '▲ ' : '▼ ') + fmtUSD2(Math.abs(s.daily_pnl)) + ' (' + fmtPct(s.daily_pnl_pct) + ') hoy' +
+    '<span class="muted">Cash disponible: ' + fmtUSD2(s.cash) + '</span>';
+  document.getElementById('hero-meta').textContent = 'Cuenta IBKR — inversión de largo plazo';
+  const updatedStr = new Date(DATA.generated_at).toLocaleString('es-AR', {dateStyle:'medium', timeStyle:'short'});
+  document.getElementById('updated-sub').textContent = 'Actualizado ' + updatedStr;
+  document.getElementById('footer-updated').textContent = updatedStr;
+}
+
+function renderTiles() {
+  const s = DATA.summary, p = DATA.performance;
+  const tiles = [
+    {label: 'P&L no realizado', value: fmtUSD2(s.unrealized_pnl), sub: fmtPct(s.unrealized_pnl_pct) + ' sobre costo', cls: deltaClass(s.unrealized_pnl)},
+    {label: 'Retorno YTD', value: fmtPct(p.YTD), sub: 'time-weighted', cls: deltaClass(p.YTD)},
+    {label: 'Retorno 1 año', value: fmtPct(p['1Y']), sub: 'time-weighted', cls: deltaClass(p['1Y'])},
+    {label: 'Retorno 1 mes', value: fmtPct(p['1M']), sub: 'time-weighted', cls: deltaClass(p['1M'])},
+    {label: 'Dividendos acumulados', value: fmtUSD2(s.dividends_accrued), sub: 'pendientes de cobro', cls: ''},
+    {label: 'P&L realizado', value: fmtUSD2(s.realized_pnl), sub: 'histórico (ventas)', cls: ''},
+  ];
+  document.getElementById('tiles').innerHTML = tiles.map(t =>
+    '<div class="tile"><div class="t-label">' + t.label + '</div>' +
+    '<div class="t-value ' + t.cls + '">' + t.value + '</div>' +
+    '<div class="t-sub">' + t.sub + '</div></div>'
+  ).join('');
+}
+
+function smoothPath(pts) {
+  if (pts.length < 3) return 'M ' + pts.map(p => p.x + ' ' + p.y).join(' L ');
+  let d = 'M ' + pts[0].x + ' ' + pts[0].y;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i === 0 ? i : i - 1];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+    const cp1x = p1.x + (p2.x - p0.x) / 6, cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6, cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ' C ' + cp1x + ' ' + cp1y + ', ' + cp2x + ' ' + cp2y + ', ' + p2.x + ' ' + p2.y;
+  }
+  return d;
+}
+
+function renderPerfChart() {
+  const series = DATA.performance_series;
+  const svg = document.getElementById('perf-chart');
+  const tooltip = document.getElementById('perf-tooltip');
+  const W = 900, H = 260, PAD_L = 44, PAD_R = 12, PAD_T = 16, PAD_B = 28;
+  const cps = series.cps, dates = series.dates;
+  const min = Math.min(0, ...cps), max = Math.max(0, ...cps);
+  const range = (max - min) || 0.01;
+  const x = i => PAD_L + (i/(cps.length-1)) * (W - PAD_L - PAD_R);
+  const y = v => PAD_T + (1 - (v - min)/range) * (H - PAD_T - PAD_B);
+
+  const seriesColor = cssVar('--series-1');
+  const softColor = cssVar('--series-1-soft');
+  const grid = cssVar('--gridline');
+  const baseline = cssVar('--baseline');
+  const muted = cssVar('--text-muted');
+  const good = cssVar('--good'), bad = cssVar('--bad');
+
+  const pts = cps.map((v, i) => ({x: x(i), y: y(v)}));
+  let path = smoothPath(pts);
+  let area = path + ' L ' + x(cps.length-1) + ' ' + y(min<0?min:0) + ' L ' + x(0) + ' ' + y(min<0?min:0) + ' Z';
+
+  const yTicks = 4;
+  let gridSvg = '';
+  for (let t=0; t<=yTicks; t++) {
+    const v = min + (range * t / yTicks);
+    const yy = y(v);
+    gridSvg += '<line x1="'+PAD_L+'" y1="'+yy+'" x2="'+(W-PAD_R)+'" y2="'+yy+'" stroke="'+grid+'" stroke-width="1"/>';
+    gridSvg += '<text x="'+(PAD_L-8)+'" y="'+(yy+4)+'" font-size="11" fill="'+muted+'" text-anchor="end" font-family="system-ui,sans-serif">'+(v*100).toFixed(1)+'%</text>';
+  }
+  const zeroY = y(0);
+  gridSvg += '<line x1="'+PAD_L+'" y1="'+zeroY+'" x2="'+(W-PAD_R)+'" y2="'+zeroY+'" stroke="'+baseline+'" stroke-width="1" stroke-dasharray="3,3"/>';
+
+  const last = cps[cps.length-1];
+  const endColor = last >= 0 ? good : bad;
+
+  svg.innerHTML =
+    gridSvg +
+    '<path d="'+area+'" fill="'+softColor+'" stroke="none"/>' +
+    '<path d="'+path+'" fill="none" stroke="'+seriesColor+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<circle cx="'+x(cps.length-1)+'" cy="'+y(last)+'" r="4.5" fill="'+endColor+'" stroke="'+cssVar('--surface-1')+'" stroke-width="2"/>' +
+    '<line id="crosshair" x1="0" y1="'+PAD_T+'" x2="0" y2="'+(H-PAD_B)+'" stroke="'+muted+'" stroke-width="1" opacity="0" />' +
+    '<circle id="hoverdot" cx="0" cy="0" r="4" fill="'+seriesColor+'" stroke="'+cssVar('--surface-1')+'" stroke-width="2" opacity="0"/>' +
+    '<rect id="perf-overlay" x="'+PAD_L+'" y="0" width="'+(W-PAD_L-PAD_R)+'" height="'+H+'" fill="transparent" style="cursor:crosshair"/>';
+
+  const overlay = document.getElementById('perf-overlay');
+  const crosshair = document.getElementById('crosshair');
+  const hoverdot = document.getElementById('hoverdot');
+  overlay.addEventListener('mousemove', function(evt){
+    const rect = svg.getBoundingClientRect();
+    const px = (evt.clientX - rect.left) / rect.width * W;
+    let idx = Math.round(((px - PAD_L) / (W - PAD_L - PAD_R)) * (cps.length-1));
+    idx = Math.max(0, Math.min(cps.length-1, idx));
+    const cx = x(idx), cy = y(cps[idx]);
+    crosshair.setAttribute('x1', cx); crosshair.setAttribute('x2', cx); crosshair.setAttribute('opacity', 1);
+    hoverdot.setAttribute('cx', cx); hoverdot.setAttribute('cy', cy); hoverdot.setAttribute('opacity', 1);
+    tooltip.style.opacity = 1;
+    tooltip.style.left = (cx / W * 100) + '%';
+    tooltip.style.top = (cy / H * 100) + '%';
+    tooltip.innerHTML = fmtDate(dates[idx]) + ' &middot; <b>' + fmtPct(cps[idx]) + '</b>';
+  });
+  overlay.addEventListener('mouseleave', function(){
+    crosshair.setAttribute('opacity', 0); hoverdot.setAttribute('opacity', 0); tooltip.style.opacity = 0;
+  });
+
+  const p = DATA.performance;
+  document.getElementById('perf-range').innerHTML =
+    ['1D','7D','MTD','1M','YTD','1Y'].map(k => '<span>'+k+' &nbsp;<b style="color:'+(p[k]>=0?good:bad)+'">'+fmtPct(p[k])+'</b></span>').join('');
+}
+
+function renderBarChart(elId, items, opts) {
+  opts = opts || {};
+  let list = items.slice().sort((a,b) => b.weight - a.weight);
+  if (list.length > 8) {
+    const top = list.slice(0,7);
+    const restSum = list.slice(7).reduce((a,b)=>a+b.weight,0);
+    list = top.concat([{name:'Otros', weight: restSum}]);
+  }
+  const el = document.getElementById(elId);
+  el.innerHTML = list.map((item, i) => {
+    const color = cssVar(CAT[i % CAT.length]);
+    const pct = (item.weight*100);
+    return '<div class="row">' +
+      '<div class="name" title="'+item.name+'">'+item.name+'</div>' +
+      '<div class="bar-bg"><div class="bar-fill" style="width:'+Math.max(pct,1.2)+'%;background:'+color+';"></div></div>' +
+      '<div class="pct">'+pct.toFixed(1)+'%</div>' +
+      '</div>';
+  }).join('');
+}
+
+function renderPositions() {
+  const rows = DATA.positions;
+  document.getElementById('positions-sub').textContent = rows.length + ' posiciones abiertas';
+  const tbody = document.querySelector('#positions-table tbody');
+  tbody.innerHTML = rows.map(p =>
+    '<tr>' +
+    '<td><span class="ticker-pill">'+p.ticker+'</span><span class="name-sub">'+p.name+'</span></td>' +
+    '<td>'+fmtNum(p.qty)+'</td>' +
+    '<td>'+fmtUSD2(p.avg_price)+'</td>' +
+    '<td>'+fmtUSD2(p.price)+'</td>' +
+    '<td>'+fmtUSD2(p.market_value)+'</td>' +
+    '<td class="'+deltaClass(p.unrealized_pnl)+'">'+fmtUSD2(p.unrealized_pnl)+' <span style="color:inherit">('+fmtPct(p.unrealized_pnl_pct)+')</span></td>' +
+    '<td class="'+deltaClass(p.daily_pnl)+'">'+fmtUSD2(p.daily_pnl)+'</td>' +
+    '<td>'+(p.weight*100).toFixed(1)+'%</td>' +
+    '</tr>'
+  ).join('');
+}
+
+function renderTrades() {
+  const rows = DATA.trades;
+  const tbody = document.querySelector('#trades-table tbody');
+  tbody.innerHTML = rows.map(t =>
+    '<tr>' +
+    '<td>'+t.date+'</td>' +
+    '<td>'+t.side+'</td>' +
+    '<td><span class="ticker-pill">'+t.ticker+'</span></td>' +
+    '<td>'+fmtNum(t.qty)+'</td>' +
+    '<td>'+fmtUSD2(t.price)+'</td>' +
+    '<td>'+fmtUSD2(t.commission)+'</td>' +
+    '<td>'+fmtUSD2(t.net_amount)+'</td>' +
+    '</tr>'
+  ).join('');
+}
+
+// ===== Simulador =====
+function simDeltaSpan(value, base) {
+  const d = base ? (value - base) / base : 0;
+  return fmtUSD2(value) + ' <span class="sim-delta ' + deltaClass(d) + '">(' + fmtPct(d, 0) + ')</span>';
+}
+
+function renderSimulator() {
+  const sim = DATA.simulator, t = sim.totals;
+  const tiles = [
+    {label: 'Invertido (operaciones registradas)', value: fmtUSD2(t.invested), sub: sim.date_range[0] + ' — ' + sim.date_range[1], cls: ''},
+    {label: 'Resultado real hoy', value: fmtUSD2(t.real_value), sub: fmtPct((t.real_value - t.invested) / t.invested) + ' vs. invertido', cls: deltaClass(t.real_value - t.invested)},
+    {label: 'Si hubiera sido SPY', value: fmtUSD2(t.spy_value), sub: fmtPct((t.spy_value - t.real_value) / t.real_value) + ' vs. resultado real', cls: deltaClass(t.spy_value - t.real_value)},
+    {label: 'Si hubiera sido QQQ', value: fmtUSD2(t.qqq_value), sub: fmtPct((t.qqq_value - t.real_value) / t.real_value) + ' vs. resultado real', cls: deltaClass(t.qqq_value - t.real_value)},
+    {label: 'Si hubiera sido Bitcoin', value: fmtUSD2(t.btc_value), sub: fmtPct((t.btc_value - t.real_value) / t.real_value) + ' vs. resultado real', cls: deltaClass(t.btc_value - t.real_value)},
+  ];
+  document.getElementById('sim-tiles').innerHTML = tiles.map(x =>
+    '<div class="tile"><div class="t-label">' + x.label + '</div>' +
+    '<div class="t-value ' + x.cls + '">' + x.value + '</div>' +
+    '<div class="t-sub">' + x.sub + '</div></div>'
+  ).join('');
+
+  const barItems = [
+    {name: 'Invertido', value: t.invested, color: cssVar('--text-muted')},
+    {name: 'Resultado real', value: t.real_value, color: cssVar('--s1')},
+    {name: 'Si SPY', value: t.spy_value, color: cssVar('--s2')},
+    {name: 'Si QQQ', value: t.qqq_value, color: cssVar('--s3')},
+    {name: 'Si Bitcoin', value: t.btc_value, color: cssVar('--s4')},
+  ];
+  const maxVal = Math.max(...barItems.map(b => b.value));
+  document.getElementById('sim-barchart').innerHTML = barItems.map(item => {
+    const pct = (item.value / maxVal) * 100;
+    return '<div class="row">' +
+      '<div class="name">' + item.name + '</div>' +
+      '<div class="bar-bg"><div class="bar-fill" style="width:' + Math.max(pct, 1.2) + '%;background:' + item.color + ';"></div></div>' +
+      '<div class="pct">' + fmtUSD(item.value) + '</div>' +
+      '</div>';
+  }).join('');
+
+  const tbody = document.querySelector('#sim-table tbody');
+  tbody.innerHTML = sim.rows.map(r =>
+    '<tr>' +
+    '<td><span class="ticker-pill">' + r.ticker + '</span></td>' +
+    '<td>' + fmtUSD2(r.invested) + '</td>' +
+    '<td>' + fmtUSD2(r.real_value) + '</td>' +
+    '<td>' + simDeltaSpan(r.spy_value, r.real_value) + '</td>' +
+    '<td>' + simDeltaSpan(r.qqq_value, r.real_value) + '</td>' +
+    '<td>' + simDeltaSpan(r.btc_value, r.real_value) + '</td>' +
+    '</tr>'
+  ).join('');
+
+  document.getElementById('sim-excluded').textContent = sim.excluded_tickers.length ?
+    'No incluye ' + sim.excluded_tickers.join(', ') + ' — sin fecha de compra disponible vía la API de IBKR (posiciones más antiguas que la ventana de historial de operaciones).' : '';
+}
+
+// ===== Recomendaciones: perfil inferido =====
+function computeProfileInsights() {
+  const alloc = DATA.allocation, pos = DATA.positions;
+  const insights = [];
+
+  const sectors = alloc.sector.filter(s => s.name !== 'Cash').slice().sort((a, b) => b.weight - a.weight);
+  if (sectors.length) {
+    insights.push('Tu sector con mayor peso es <b>' + sectors[0].name + '</b>, con ' + fmtShare(sectors[0].weight, 1) + ' de la cartera.');
+  }
+
+  const topCountry = alloc.country.slice().sort((a, b) => b.weight - a.weight)[0];
+  if (topCountry) {
+    insights.push('<b>' + fmtShare(topCountry.weight, 1) + '</b> de tu cartera está en ' + topCountry.name +
+      (topCountry.weight > 0.85 ? ' — concentración geográfica alta.' : '.'));
+  }
+
+  const hasBonds = alloc.asset_class.some(a => /bond|renta fija/i.test(a.name));
+  insights.push(hasBonds ? 'Tenés exposición a renta fija dentro de la cartera.' :
+    'No tenés exposición a renta fija / bonos — toda la cartera está en acciones, ETFs y cash.');
+
+  const etf = alloc.instrument.find(i => i.name === 'ETFs');
+  if (etf) insights.push(fmtShare(etf.weight, 1) + ' de la cartera está en ETFs (diversificación instantánea) y el resto en acciones individuales.');
+
+  const losers = pos.filter(p => p.unrealized_pnl_pct < -0.1).sort((a, b) => a.unrealized_pnl_pct - b.unrealized_pnl_pct);
+  if (losers.length) {
+    insights.push('Las posiciones con mayor pérdida no realizada hoy son ' +
+      losers.slice(0, 3).map(p => p.ticker + ' (' + fmtPct(p.unrealized_pnl_pct, 1) + ')').join(', ') + '.');
+  }
+  return insights;
+}
+
+function computeAdjustmentInsights() {
+  const pos = DATA.positions, alloc = DATA.allocation;
+  const byTicker = {};
+  pos.forEach(p => byTicker[p.ticker] = p.weight);
+  const insights = [];
+
+  const spyW = byTicker['SPY'] || 0, qqqW = byTicker['QQQ'] || 0;
+  if (spyW && qqqW) {
+    insights.push('<b>SPY + QQQ</b> suman ' + fmtShare(spyW + qqqW, 1) + ' de la cartera. Los dos ETFs tienen alta correlación entre sí (QQQ es básicamente el sector tech de large-caps que SPY ya incluye) — es exposición solapada, no diversificación adicional.');
+  }
+
+  const topPos = pos.slice().sort((a, b) => b.weight - a.weight)[0];
+  if (topPos && topPos.weight > 0.15 && topPos.ticker !== 'SPY' && topPos.ticker !== 'QQQ') {
+    insights.push('<b>' + topPos.ticker + '</b> es tu posición individual más grande (' + fmtShare(topPos.weight, 1) + '). Vale la pena confirmar que ese tamaño de posición sea intencional.');
+  }
+
+  const techSector = alloc.sector.find(s => s.name === 'Technology');
+  if (techSector && techSector.weight > 0.1) {
+    insights.push('Sumando el sector <b>Technology</b> directo (' + fmtShare(techSector.weight, 1) + ') más la parte tech dentro de SPY/QQQ, tu exposición real a tecnología es mayor a lo que muestra el desglose por sector.');
+  }
+
+  const specTickers = ['RKLB', 'SYM', 'URA', 'ONON'].filter(t => byTicker[t]);
+  const specWeight = specTickers.reduce((a, t) => a + byTicker[t], 0);
+  if (specWeight > 0) {
+    insights.push('Tenés ' + fmtShare(specWeight, 1) + ' en posiciones más especulativas / de alta volatilidad (' + specTickers.join(', ') + '), varias con pérdida no realizada hoy — es la parte de la cartera para revisar primero si buscás bajar riesgo.');
+  }
+
+  const hasBonds = alloc.asset_class.some(a => /bond|renta fija/i.test(a.name));
+  if (!hasBonds) {
+    insights.push('No hay renta fija en la cartera. Si en algún momento buscás bajar la volatilidad general, es la pieza más simple que falta.');
+  }
+  return insights;
+}
+
+function renderProfileInsights() {
+  document.getElementById('profile-insights').innerHTML =
+    computeProfileInsights().map(t => '<div class="insight-item">' + t + '</div>').join('');
+  document.getElementById('adjustment-insights').innerHTML =
+    computeAdjustmentInsights().map(t => '<div class="insight-item">' + t + '</div>').join('');
+}
+
+// ===== Recomendaciones: ideas por temática =====
+const THEME_IDEAS = {
+  tech: {tag: 'Tecnología', title: 'Diversificar dentro de tech', desc: 'Ya tenés SPY, QQQ, GOOGL y MSFT — todos con peso grande en tech de EE.UU. Para sumar algo distinto en vez de duplicar, se suele mirar ETFs sectoriales más angostos (semis, software, ciberseguridad) en lugar de más large-caps que QQQ ya cubre.'},
+  dividends: {tag: 'Dividendos / income', title: 'Ampliar el bloque de dividendos', desc: 'Ya tenés KO, PG, JNJ y O — un núcleo clásico de dividend aristocrats. Para profundizar sin duplicar, se suele mirar ETFs de dividend growth o REITs de otros sectores además de real estate.'},
+  crypto: {tag: 'Cripto', title: 'Exposición cripto', desc: 'Hoy tenés 0% de exposición cripto directa. Es el activo más volátil de los que podrías sumar — conviene definir primero qué tamaño de posición estás dispuesto a arriesgar, antes que el activo puntual.'},
+  smallcaps: {tag: 'Small caps', title: 'Small / mid caps', desc: 'RKLB y SYM ya son tu sleeve de small-caps de alto riesgo, y ambas están en pérdida hoy. Antes de sumar más, conviene revisar si el tamaño combinado de esa porción sigue siendo el que buscás.'},
+  intl: {tag: 'Internacional', title: 'Diversificación geográfica', desc: '91% de tu cartera está en EE.UU.; MELI suma algo de exposición a Latam. Un ETF ex-US amplio (mercados desarrollados o emergentes) es la forma más simple de bajar esa concentración geográfica.'},
+  value: {tag: 'Value', title: 'Sesgo value', desc: 'Tu cartera hoy está más orientada a growth / large-cap (SPY, QQQ, MSFT, GOOGL). Un screener o ETF de value te da el otro lado del estilo de inversión, como contrapeso.'},
+  esg: {tag: 'Sustentabilidad / ESG', title: 'Screening ESG', desc: 'Si te interesa el filtro ESG, conviene aplicarlo primero sobre lo que ya tenés — varios de tus ETFs amplios (SPY/QQQ) tienen versiones ESG equivalentes.'},
+  bonds: {tag: 'Renta fija', title: 'Sumar renta fija', desc: 'Hoy tenés 0% en bonos. Un ETF de bonos agregados o T-Bills de corto plazo es la forma más simple de bajarle volatilidad general a la cartera.'},
+};
+const DEFAULT_GAP_THEMES = ['bonds', 'intl'];
+
+function renderIdeas(answers) {
+  const themes = (answers.themes && answers.themes.length) ? answers.themes : DEFAULT_GAP_THEMES;
+  const usingDefault = !(answers.themes && answers.themes.length);
+  const cards = themes.map(k => THEME_IDEAS[k]).filter(Boolean);
+
+  const noteParts = [];
+  if (usingDefault) {
+    noteParts.push('No elegiste temáticas todavía — estos son los huecos más claros de tu cartera actual (renta fija y diversificación geográfica).');
+  } else {
+    const bits = [];
+    if (answers.risk) bits.push('riesgo ' + answers.risk);
+    if (answers.horizon) bits.push('horizonte ' + answers.horizon);
+    noteParts.push('Ideas para tu perfil' + (bits.length ? ' (' + bits.join(', ') + ')' : '') + ', según las temáticas elegidas.');
+  }
+  document.getElementById('ideas-note').textContent = noteParts.join(' ');
+  document.getElementById('idea-grid').innerHTML = cards.map(c =>
+    '<div class="idea-card"><div class="idea-tag">' + c.tag + '</div>' +
+    '<div class="idea-title">' + c.title + '</div>' +
+    '<div class="idea-desc">' + c.desc + '</div></div>'
+  ).join('');
+}
+
+const quizState = {risk: null, horizon: null, themes: []};
+document.querySelectorAll('.chip-row').forEach(function(row) {
+  const key = row.getAttribute('data-quiz');
+  const multi = row.getAttribute('data-multi') === 'true';
+  row.querySelectorAll('.chip').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      const val = chip.getAttribute('data-value');
+      if (multi) {
+        const idx = quizState[key].indexOf(val);
+        if (idx >= 0) { quizState[key].splice(idx, 1); chip.classList.remove('selected'); }
+        else { quizState[key].push(val); chip.classList.add('selected'); }
+      } else {
+        quizState[key] = val;
+        row.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('selected'); });
+        chip.classList.add('selected');
+      }
+    });
+  });
+});
+document.getElementById('quiz-submit').addEventListener('click', function() {
+  renderIdeas(quizState);
+  document.getElementById('idea-grid').closest('section').scrollIntoView({behavior: 'smooth', block: 'start'});
+});
+
+function renderAll() {
+  renderHero();
+  renderTiles();
+  renderPerfChart();
+  renderBarChart('chart-asset-class', DATA.allocation.asset_class);
+  renderBarChart('chart-country', DATA.allocation.country);
+  renderBarChart('chart-sector', DATA.allocation.sector);
+  renderPositions();
+  renderTrades();
+  renderSimulator();
+  renderProfileInsights();
+  renderIdeas(quizState);
+}
+
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(){
+  let saved = null;
+  try { saved = localStorage.getItem('theme'); } catch(e) {}
+  if (!saved && DATA) { setTheme('system'); renderAll(); }
+});
+
+// ===== Auth (Supabase) =====
+const AUTH_ERROR_ES = {
+  'Invalid login credentials': 'Email o contraseña incorrectos.',
+  'Email not confirmed': 'Todavía no confirmaste tu mail — revisá tu bandeja de entrada (y spam).',
+  'User already registered': 'Ya existe una cuenta con ese mail — probá iniciar sesión.',
+};
+function authErrorMessage(err) {
+  if (!err) return 'Ocurrió un error inesperado. Probá de nuevo.';
+  return AUTH_ERROR_ES[err.message] || err.message;
+}
+function showAuthMessage(text, kind) {
+  const el = document.getElementById('auth-message');
+  el.textContent = text;
+  el.className = 'auth-message ' + (kind || 'error');
+  el.style.display = 'block';
+}
+function hideAuthMessage() {
+  document.getElementById('auth-message').style.display = 'none';
+}
+
+// Los toggles de login/registro no dependen del cliente de Supabase —
+// se conectan siempre, para que la pantalla nunca quede "muerta" si el
+// script de Supabase tarda o no llega a cargar (red lenta, bloqueador, etc.)
+document.getElementById('to-signup-link').addEventListener('click', function(){
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('signup-form').style.display = 'flex';
+  document.getElementById('to-signup').style.display = 'none';
+  document.getElementById('to-login').style.display = 'inline';
+  hideAuthMessage();
+});
+document.getElementById('to-login-link').addEventListener('click', function(){
+  document.getElementById('signup-form').style.display = 'none';
+  document.getElementById('login-form').style.display = 'flex';
+  document.getElementById('to-login').style.display = 'none';
+  document.getElementById('to-signup').style.display = 'inline';
+  hideAuthMessage();
+});
+
+function initAuth(sb) {
+  document.getElementById('login-form').addEventListener('submit', async function(evt){
+    evt.preventDefault();
+    hideAuthMessage();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) showAuthMessage(authErrorMessage(error), 'error');
+  });
+
+  document.getElementById('signup-form').addEventListener('submit', async function(evt){
+    evt.preventDefault();
+    hideAuthMessage();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if (error) { showAuthMessage(authErrorMessage(error), 'error'); return; }
+    if (data && !data.session) {
+      showAuthMessage('Cuenta creada. Te mandamos un mail para confirmarla — revisá tu bandeja de entrada.', 'ok');
+    }
+  });
+
+  document.getElementById('google-btn').addEventListener('click', async function(){
+    hideAuthMessage();
+    await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async function(){
+    await sb.auth.signOut();
+  });
+
+  async function loadPortfolioData() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+    document.getElementById('user-email').textContent = user.email;
+
+    const { data: rows, error } = await sb
+      .from('portfolio_snapshots')
+      .select('data, captured_at')
+      .order('captured_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error(error);
+      document.getElementById('app-root').innerHTML = '<div class="empty-state">Hubo un error cargando tu cartera. Probá recargar la página.</div>';
+      return;
+    }
+    if (!rows || !rows.length) {
+      document.getElementById('app-root').innerHTML =
+        '<div class="empty-state">Todavía no hay datos sincronizados en tu cuenta.<br>En cuanto se conecte y corra la primera sincronización, vas a ver tu cartera acá.</div>';
+      return;
+    }
+    DATA = rows[0].data;
+    renderAll();
+  }
+
+  function showAuthScreen() {
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app-root').style.display = 'none';
+  }
+  function showApp() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-root').style.display = 'block';
+    loadPortfolioData();
+  }
+
+  sb.auth.onAuthStateChange(function(event, session){
+    if (session) { showApp(); } else { showAuthScreen(); }
+  });
+  sb.auth.getSession().then(function(res){
+    if (res.data.session) { showApp(); } else { showAuthScreen(); }
+  });
+}
+
+const SUPABASE_URL = 'https://udttbufjeznrfpwfbzzz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_QbMJixOtimseWozCqs31YA_LRilCxPr';
+let sb = null;
+try {
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (err) {
+  console.error('No se pudo inicializar Supabase:', err);
+}
+if (!sb) {
+  showAuthMessage('No se pudo conectar con el servidor. Revisá tu conexión y recargá la página.', 'error');
+} else {
+  initAuth(sb);
+}
+</script>
+</body>
+</html>
