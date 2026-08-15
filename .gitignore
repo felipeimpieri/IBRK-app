@@ -1,0 +1,15 @@
+# Archivos del editor de Claude Design.
+# NO se commitean por dos razones:
+#  1) Vercel publica todo lo que esta en el repo como archivo estatico. Los .dc.html
+#     tienen la cartera con numeros reales hardcodeados y quedarian accesibles
+#     SIN login en https://<dominio>/diseno/...
+#  2) Son 3.8 MB de mockups y capturas que no son codigo de la app.
+diseno/
+
+# Ruido del sistema
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Descartes a revisar y borrar a mano
+_to_delete/

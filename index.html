@@ -353,7 +353,7 @@
 
   <section class="card">
     <h2>Rendimiento acumulado — año en curso</h2>
-    <div class="card-sub">Retorno TWR (time-weighted), ajustado por depósitos/retiros de efectivo</div>
+    <div class="card-sub" id="perf-sub">Retorno TWR (time-weighted), ajustado por depósitos/retiros de efectivo</div>
     <div class="perf-wrap">
       <svg id="perf-chart" viewBox="0 0 900 260" preserveAspectRatio="none" style="width:100%;height:260px;display:block;"></svg>
       <div class="perf-tooltip" id="perf-tooltip"></div>
@@ -369,14 +369,14 @@
     </div>
     <div class="card">
       <h2>Asignación por país</h2>
-      <div class="card-sub">% del valor total de la cartera</div>
+      <div class="card-sub" id="country-sub">% del valor total de la cartera</div>
       <div class="barchart" id="chart-country"></div>
     </div>
   </section>
 
   <section class="card">
     <h2>Asignación por sector</h2>
-    <div class="card-sub">% del valor total de la cartera</div>
+    <div class="card-sub" id="sector-sub">% del valor total de la cartera</div>
     <div class="barchart" id="chart-sector"></div>
   </section>
 
@@ -388,7 +388,7 @@
         <thead>
           <tr>
             <th>Ticker</th><th>Cantidad</th><th>Precio prom.</th><th>Precio actual</th>
-            <th>Valor de mercado</th><th>P&amp;L no realizado</th><th>P&amp;L diario</th><th>% cartera</th>
+            <th>Valor de mercado</th><th>P&amp;L no realizado</th><th title="P&amp;L acumulado desde que se abrió la posición dentro del período del statement de IBKR. No es la variación del día.">P&amp;L del período</th><th>% cartera</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -538,28 +538,84 @@ document.getElementById('theme-toggle').addEventListener('click', function(){
 
 let DATA = null;
 
+// El campo `daily_pnl` que manda IBKR Flex NO es la variación del día: es el P&L
+// acumulado desde que se abrió la posición dentro del período del statement. Se nota
+// porque para las posiciones compradas dentro de ese período (URA, RKLB, BRK.B, SYM)
+// `daily_pnl` es exactamente igual a `unrealized_pnl`. Usarlo como "hoy" daba +7.0%
+// en un día, mientras el bloque de performance del mismo snapshot decía +0.6%.
+// La fuente correcta para la variación diaria es performance['1D'].
+function dailyChange() {
+  const s = DATA.summary;
+  const r = (DATA.performance && typeof DATA.performance['1D'] === 'number')
+    ? DATA.performance['1D'] : null;
+  if (r === null) return null;
+  const prev = s.net_liquidation / (1 + r);
+  return { pct: r, amount: s.net_liquidation - prev };
+}
+
 function renderHero() {
   const s = DATA.summary;
   document.getElementById('hero-value').textContent = fmtUSD2(s.net_liquidation);
   const dEl = document.getElementById('hero-delta');
-  dEl.className = 'delta ' + deltaClass(s.daily_pnl);
-  dEl.innerHTML = (s.daily_pnl >= 0 ? '▲ ' : '▼ ') + fmtUSD2(Math.abs(s.daily_pnl)) + ' (' + fmtPct(s.daily_pnl_pct) + ') hoy' +
-    '<span class="muted">Cash disponible: ' + fmtUSD2(s.cash) + '</span>';
+  const d = dailyChange();
+  if (d) {
+    dEl.className = 'delta ' + deltaClass(d.amount);
+    dEl.innerHTML = (d.amount >= 0 ? '▲ ' : '▼ ') + fmtUSD2(Math.abs(d.amount)) + ' (' + fmtPct(d.pct) + ') hoy' +
+      '<span class="muted">Cash disponible: ' + fmtUSD2(s.cash) + '</span>';
+  } else {
+    dEl.className = 'delta';
+    dEl.innerHTML = 'Variación del día no disponible' +
+      '<span class="muted">Cash disponible: ' + fmtUSD2(s.cash) + '</span>';
+  }
   document.getElementById('hero-meta').textContent = 'Cuenta IBKR — inversión de largo plazo';
   const updatedStr = new Date(DATA.generated_at).toLocaleString('es-AR', {dateStyle:'medium', timeStyle:'short'});
   document.getElementById('updated-sub').textContent = 'Actualizado ' + updatedStr;
   document.getElementById('footer-updated').textContent = updatedStr;
 }
 
+// El snapshot trae summary.realized_pnl = 0 aunque haya ventas cerradas (JNJ se vendió
+// entero el 31/07). Lo recalculamos desde las operaciones: por cada ticker con ventas,
+// costo prorrateado de las compras registradas contra el neto de las ventas.
+// Si un ticker tiene ventas pero las compras quedan fuera de la ventana de historial
+// que devuelve la API, no se puede calcular y se marca como incompleto en vez de
+// inventar un número.
+function computeRealized() {
+  const byTicker = {};
+  (DATA.trades || []).forEach(function(t){
+    const k = t.ticker;
+    if (!byTicker[k]) byTicker[k] = { boughtQty:0, boughtNet:0, soldQty:0, soldNet:0 };
+    const b = byTicker[k];
+    if (t.qty > 0) { b.boughtQty += t.qty; b.boughtNet += t.net_amount; }
+    else if (t.qty < 0) { b.soldQty += -t.qty; b.soldNet += t.net_amount; }
+  });
+  let total = 0, incomplete = [], closed = [];
+  Object.keys(byTicker).forEach(function(k){
+    const b = byTicker[k];
+    if (b.soldQty <= 0) return;
+    if (b.boughtQty < b.soldQty) { incomplete.push(k); return; }
+    const costPerShare = b.boughtNet / b.boughtQty;
+    const pnl = b.soldNet - (b.soldQty * costPerShare);
+    total += pnl;
+    closed.push({ ticker:k, pnl:pnl, qty:b.soldQty });
+  });
+  return { total: total, incomplete: incomplete, closed: closed, any: closed.length > 0 };
+}
+
 function renderTiles() {
   const s = DATA.summary, p = DATA.performance;
+  const rz = computeRealized();
+  const realizedValue = rz.any ? rz.total : s.realized_pnl;
+  const realizedSub = rz.any
+    ? ('cerrado: ' + rz.closed.map(function(c){ return c.ticker; }).join(', ') +
+       (rz.incomplete.length ? ' · ' + rz.incomplete.join(', ') + ' sin costo en la ventana' : ''))
+    : 'histórico (ventas)';
   const tiles = [
     {label: 'P&L no realizado', value: fmtUSD2(s.unrealized_pnl), sub: fmtPct(s.unrealized_pnl_pct) + ' sobre costo', cls: deltaClass(s.unrealized_pnl)},
     {label: 'Retorno YTD', value: fmtPct(p.YTD), sub: 'time-weighted', cls: deltaClass(p.YTD)},
     {label: 'Retorno 1 año', value: fmtPct(p['1Y']), sub: 'time-weighted', cls: deltaClass(p['1Y'])},
     {label: 'Retorno 1 mes', value: fmtPct(p['1M']), sub: 'time-weighted', cls: deltaClass(p['1M'])},
     {label: 'Dividendos acumulados', value: fmtUSD2(s.dividends_accrued), sub: 'pendientes de cobro', cls: ''},
-    {label: 'P&L realizado', value: fmtUSD2(s.realized_pnl), sub: 'histórico (ventas)', cls: ''},
+    {label: 'P&L realizado', value: fmtUSD2(realizedValue), sub: realizedSub, cls: deltaClass(realizedValue)},
   ];
   document.getElementById('tiles').innerHTML = tiles.map(t =>
     '<div class="tile"><div class="t-label">' + t.label + '</div>' +
@@ -892,13 +948,70 @@ document.getElementById('quiz-submit').addEventListener('click', function() {
   document.getElementById('idea-grid').closest('section').scrollIntoView({behavior: 'smooth', block: 'start'});
 });
 
+// La asignación por clase de activo venía del bloque `allocation`, que no se recalcula
+// en la sincronización: mostraba "STK 100.0%" ignorando el efectivo. Se puede recalcular
+// entera desde `positions` + `summary.cash`, que sí llegan frescos todos los días.
+function assetClassAllocation() {
+  const s = DATA.summary;
+  const nav = s.net_liquidation;
+  if (!nav) return [];
+  const LABELS = { STK: 'Acciones y ETFs', CASH: 'Efectivo', BOND: 'Bonos', OPT: 'Opciones', FUT: 'Futuros' };
+  const byClass = {};
+  (DATA.positions || []).forEach(function(p){
+    const k = LABELS[p.asset_class] || p.asset_class || 'Otros';
+    byClass[k] = (byClass[k] || 0) + p.market_value;
+  });
+  const out = Object.keys(byClass).map(function(k){ return { name: k, weight: byClass[k] / nav }; });
+  if (s.cash > 0) out.push({ name: 'Efectivo', weight: s.cash / nav });
+  // El NAV = posiciones + efectivo + dividendos devengados. Sin esta línea las barras
+  // suman 99.97% y no 100%.
+  if (s.dividends_accrued > 0) out.push({ name: 'Dividendos por cobrar', weight: s.dividends_accrued / nav });
+  return out.sort(function(a, b){ return b.weight - a.weight; });
+}
+
+// Sector y país no se pueden recalcular en el front: `positions` no trae esos campos.
+// Hasta que la sincronización los recalcule, se marcan como desactualizados en vez de
+// mostrarse como si fueran de hoy.
+function markStaleAllocation() {
+  const note = (DATA._sync_meta && DATA._sync_meta.note) ? DATA._sync_meta.note : '';
+  const isStale = /allocation\.sector|allocation\.country/i.test(note);
+  if (!isStale) return;
+  const txt = '% del valor total — ⚠ no se recalcula en la sincronización diaria, refleja la última carga manual';
+  const c = document.getElementById('country-sub');
+  const sc = document.getElementById('sector-sub');
+  if (c) c.textContent = txt;
+  if (sc) sc.textContent = txt;
+}
+
+// La serie de rendimiento tampoco se recalcula: termina el 28/07 mientras el header
+// dice "actualizado 14/08". Mostramos hasta qué día llega para que el gráfico no
+// aparente ser de hoy.
+function markPerfAsOf() {
+  const el = document.getElementById('perf-sub');
+  const dates = DATA.performance_series && DATA.performance_series.dates;
+  if (!el || !dates || !dates.length) return;
+  const last = String(dates[dates.length - 1]);
+  const pretty = last.length === 8
+    ? last.slice(6,8) + '/' + last.slice(4,6) + '/' + last.slice(0,4)
+    : last;
+  const snap = DATA.generated_at ? new Date(DATA.generated_at) : null;
+  const lastDate = last.length === 8
+    ? new Date(+last.slice(0,4), +last.slice(4,6)-1, +last.slice(6,8))
+    : null;
+  const gapDays = (snap && lastDate) ? Math.round((snap - lastDate) / 86400000) : 0;
+  el.textContent = 'Retorno TWR (time-weighted), ajustado por depósitos/retiros · datos hasta ' + pretty +
+    (gapDays > 2 ? ' — ⚠ la serie no se recalcula en la sincronización, faltan ' + gapDays + ' días' : '');
+}
+
 function renderAll() {
   renderHero();
   renderTiles();
   renderPerfChart();
-  renderBarChart('chart-asset-class', DATA.allocation.asset_class);
+  renderBarChart('chart-asset-class', assetClassAllocation());
   renderBarChart('chart-country', DATA.allocation.country);
   renderBarChart('chart-sector', DATA.allocation.sector);
+  markStaleAllocation();
+  markPerfAsOf();
   renderPositions();
   renderTrades();
   renderSimulator();
