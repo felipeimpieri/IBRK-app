@@ -170,6 +170,19 @@
   .theme-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
   .theme-btn:active { transform: translateY(1px); }
 
+  .top-nav { display: flex; align-items: center; gap: 4px; margin-right: auto; min-width: 0; overflow-x: auto; }
+  .nav-btn {
+    height: 28px; padding: 0 13px; border-radius: 8px; display: inline-flex; align-items: center;
+    white-space: nowrap; font-family: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer;
+    background: transparent; border: 1px solid transparent; color: var(--text-muted);
+    transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+  }
+  .nav-btn:hover { color: var(--text-secondary); }
+  .nav-btn.active { background: var(--surface-1); border-color: var(--border); color: var(--text-primary); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .tab-panel > .section-heading:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
   .hero {
     padding: 28px 32px; margin-bottom: 32px;
     background: var(--glass-fill); backdrop-filter: blur(var(--glass-blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
@@ -283,6 +296,20 @@
   .chip:hover { border-color: var(--border-hover); color: var(--text-primary); transform: translateY(-1px); }
   .chip.selected { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
 
+  .instrument-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .chip.portfolio-pick {
+    display: flex; flex-direction: column; align-items: flex-start; text-align: left;
+    width: 100%; border-radius: var(--radius-sm); padding: 10px 12px; gap: 3px; white-space: normal;
+  }
+  .chip.portfolio-pick .pp-title { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+  .chip.portfolio-pick .pp-desc { font-size: 11px; font-weight: 400; color: var(--text-muted); line-height: 1.4; }
+  .chip.portfolio-pick.selected .pp-title { color: var(--accent); }
+  .onb-deepen-box {
+    text-align: center; padding: 14px; border: 1px dashed var(--border); border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+  }
+  @media (max-width: 480px) { .instrument-grid { grid-template-columns: 1fr; } }
+
   .btn-primary {
     font-family: inherit; font-size: 13px; font-weight: 600; color: var(--accent-on); background: var(--accent);
     border: none; border-radius: var(--radius-sm); padding: 10px 20px; cursor: pointer;
@@ -389,22 +416,146 @@
   </div>
 </div>
 
+<div class="auth-screen" id="onboarding-screen" style="display:none;">
+  <div class="auth-card" style="max-width:520px;">
+    <div class="brand" style="justify-content:center; margin-bottom:8px;">
+      <div class="brand-mark">C</div>
+      <h1 style="font-size:16px; margin:0;">¡Bienvenido!</h1>
+    </div>
+    <div class="card-sub" style="text-align:center; margin-bottom:22px;">Contanos un poco de vos así las ideas que te mostramos tienen más sentido. Podés cambiar esto cuando quieras desde la pestaña Ideas.</div>
+
+    <label style="font-size:12.5px; color:var(--text-secondary); display:flex; flex-direction:column; gap:6px; margin-bottom:20px;">
+      ¿Cómo te llamás?
+      <input type="text" id="onb-name" placeholder="Ej: Felipe" autocomplete="given-name">
+    </label>
+
+    <div class="quiz-group">
+      <div class="q-label">Tolerancia al riesgo</div>
+      <div class="chip-row" data-quiz="onb-risk">
+        <button class="chip" data-value="conservador" type="button">Conservador</button>
+        <button class="chip" data-value="moderado" type="button">Moderado</button>
+        <button class="chip" data-value="agresivo" type="button">Agresivo</button>
+      </div>
+    </div>
+    <div class="quiz-group">
+      <div class="q-label">Horizonte de inversión</div>
+      <div class="chip-row" data-quiz="onb-horizon">
+        <button class="chip" data-value="corto" type="button">Corto (&lt;1 año)</button>
+        <button class="chip" data-value="mediano" type="button">Mediano (1–5 años)</button>
+        <button class="chip" data-value="largo" type="button">Largo (5+ años)</button>
+      </div>
+    </div>
+    <div class="quiz-group">
+      <div class="q-label">Temáticas de interés (elegí una o más)</div>
+      <div class="chip-row" data-quiz="onb-themes" data-multi="true">
+        <button class="chip" data-value="tech" type="button">Tecnología</button>
+        <button class="chip" data-value="dividends" type="button">Dividendos / income</button>
+        <button class="chip" data-value="crypto" type="button">Cripto</button>
+        <button class="chip" data-value="smallcaps" type="button">Small caps</button>
+        <button class="chip" data-value="intl" type="button">Internacional</button>
+        <button class="chip" data-value="value" type="button">Value</button>
+        <button class="chip" data-value="esg" type="button">Sustentabilidad / ESG</button>
+        <button class="chip" data-value="bonds" type="button">Renta fija</button>
+      </div>
+    </div>
+
+    <div class="onb-deepen-box" id="onb-deepen-prompt">
+      <div class="q-label" style="margin-bottom:6px;">¿Querés que esto sea más personalizado?</div>
+      <div class="card-sub" style="margin-bottom:12px;">Elegí entre acciones, índices por país y cripto — así entendemos mejor qué te gusta. Opcional, un minuto más.</div>
+      <button type="button" class="btn-google" id="onb-deepen-btn">Sí, quiero personalizarlo más</button>
+    </div>
+
+    <div id="onb-deep-test" style="display:none;">
+      <div class="quiz-group">
+        <div class="q-label">¿Qué te llama la atención? (elegí las que quieras)</div>
+        <div class="chip-row instrument-grid" data-quiz="onb-instruments" data-multi="true">
+          <button class="chip portfolio-pick" data-value="NVDA" type="button">
+            <span class="pp-title">NVDA — Nvidia</span>
+            <span class="pp-desc">Semiconductores e IA. Alto crecimiento y volatilidad.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="KO" type="button">
+            <span class="pp-title">KO — Coca-Cola</span>
+            <span class="pp-desc">Consumo estable, dividendo constante.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="RKLB" type="button">
+            <span class="pp-title">RKLB — Rocket Lab</span>
+            <span class="pp-desc">Small cap especulativa, alto riesgo y potencial.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="BRK.B" type="button">
+            <span class="pp-title">BRK.B — Berkshire Hathaway</span>
+            <span class="pp-desc">Empresas grandes y probadas — calidad a precio razonable.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="TLT" type="button">
+            <span class="pp-title">TLT — Bonos del Tesoro (largo plazo)</span>
+            <span class="pp-desc">Renta fija, mucha menor volatilidad que acciones.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="ICLN" type="button">
+            <span class="pp-title">ICLN — Energía limpia</span>
+            <span class="pp-desc">Sesgo de sustentabilidad / ESG.</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="quiz-group" style="margin-bottom:8px;">
+        <div class="q-label">Índices por país y cripto (elegí los que te interesen)</div>
+        <div class="chip-row instrument-grid" data-quiz="onb-countries" data-multi="true">
+          <button class="chip portfolio-pick" data-value="EWZ" type="button">
+            <span class="pp-title">EWZ — Brasil</span>
+            <span class="pp-desc">Índice accionario brasileño.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="FXI" type="button">
+            <span class="pp-title">FXI — China</span>
+            <span class="pp-desc">Grandes empresas chinas.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="EWJ" type="button">
+            <span class="pp-title">EWJ — Japón</span>
+            <span class="pp-desc">Índice accionario japonés.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="INDA" type="button">
+            <span class="pp-title">INDA — India</span>
+            <span class="pp-desc">Índice accionario indio.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="EWG" type="button">
+            <span class="pp-title">EWG — Alemania</span>
+            <span class="pp-desc">Índice accionario alemán.</span>
+          </button>
+          <button class="chip portfolio-pick" data-value="BTC" type="button">
+            <span class="pp-title">Bitcoin (BTC)</span>
+            <span class="pp-desc">Cripto — el activo de mayor volatilidad de esta lista.</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="btn-primary" id="onb-submit" style="width:100%; margin-top:12px;">Empezar</button>
+    <div class="auth-switch"><a id="onb-skip">Saltar por ahora</a></div>
+  </div>
+</div>
+
 <div class="wrap viz-root" id="app-root">
 
   <header class="top">
     <div class="brand">
       <div class="brand-mark">C</div>
       <div>
-        <h1>Cartera IBKR — Felipe</h1>
+        <h1 id="brand-title">Cartera IBKR — Felipe</h1>
         <div class="sub" id="updated-sub">Cargando…</div>
       </div>
     </div>
+    <nav class="top-nav" id="top-nav">
+      <button class="nav-btn" data-tab="resumen" type="button">Resumen</button>
+      <button class="nav-btn" data-tab="posiciones" type="button">Posiciones</button>
+      <button class="nav-btn" data-tab="simulador" type="button">Simulador</button>
+      <button class="nav-btn" data-tab="ideas" type="button">Ideas</button>
+    </nav>
     <div class="user-box">
       <span class="user-email" id="user-email"></span>
       <button class="theme-btn" id="logout-btn" type="button">Cerrar sesión</button>
       <button class="theme-btn" id="theme-toggle" type="button">Modo oscuro</button>
     </div>
   </header>
+
+  <div class="tab-panel" data-tab="resumen">
 
   <section class="hero" id="hero">
     <div>
@@ -446,6 +597,10 @@
     <div class="barchart" id="chart-sector"></div>
   </section>
 
+  </div><!-- /tab-panel resumen -->
+
+  <div class="tab-panel" data-tab="posiciones">
+
   <section class="card">
     <h2>Posiciones actuales</h2>
     <div class="card-sub" id="positions-sub"></div>
@@ -475,13 +630,19 @@
     </div>
   </section>
 
+  </div><!-- /tab-panel posiciones -->
+
+  <div class="tab-panel" data-tab="simulador">
+
   <div class="section-heading">Simulador — ¿qué hubiera pasado?</div>
 
   <section class="card">
     <h2>Comparación contra benchmarks</h2>
     <div class="card-sub">Mismo monto, mismo día, puesto en SPY / QQQ / Bitcoin en vez de lo que compraste — llevado a precios de hoy. Cálculo simplificado: no incluye dividendos reinvertidos de los benchmarks ni fees de esa comparación hipotética.</div>
+    <div class="card-sub" id="sim-stale-warn" style="margin-top:4px;"></div>
     <div class="tiles" id="sim-tiles" style="margin-bottom:24px;"></div>
     <div class="barchart" id="sim-barchart"></div>
+    <div class="card-sub" id="sim-reconcile" style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);"></div>
   </section>
 
   <section class="card">
@@ -496,6 +657,10 @@
       </table>
     </div>
   </section>
+
+  </div><!-- /tab-panel simulador -->
+
+  <div class="tab-panel" data-tab="ideas">
 
   <div class="section-heading">Recomendaciones</div>
 
@@ -554,6 +719,8 @@
     <div class="insight-list" id="adjustment-insights"></div>
   </section>
 
+  </div><!-- /tab-panel ideas -->
+
   <footer>
     Datos en vivo desde Interactive Brokers, leídos por Claude. No incluye la cuenta de Schwab (trading activo, se maneja aparte).<br>
     Esta página es una herramienta de organización personal — no es asesoramiento financiero, legal ni impositivo.<br>
@@ -601,6 +768,23 @@ document.getElementById('theme-toggle').addEventListener('click', function(){
   setTheme(current === 'dark' ? 'light' : 'dark');
   renderAll();
 });
+
+const TABS = ['resumen', 'posiciones', 'simulador', 'ideas'];
+function setTab(tab) {
+  if (TABS.indexOf(tab) === -1) tab = 'resumen';
+  document.querySelectorAll('.tab-panel').forEach(function(el){
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  document.querySelectorAll('.nav-btn').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  window.scrollTo(0, 0);
+  try { history.replaceState(null, '', '#' + tab); } catch(e) {}
+}
+document.querySelectorAll('.nav-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){ setTab(btn.dataset.tab); });
+});
+setTab((location.hash || '').replace('#', ''));
 
 let DATA = null;
 
@@ -835,10 +1019,23 @@ function simDeltaSpan(value, base) {
   return fmtUSD2(value) + ' <span class="sim-delta ' + deltaClass(d) + '">(' + fmtPct(d, 0) + ')</span>';
 }
 
+// El bloque `simulator` no se recalcula en cada sync (ver auditoría 15/08): puede seguir
+// contando posiciones ya vendidas como si siguieran en cartera. En vez de confiar en un
+// flag fijo (que se puede desactualizar solo), lo detectamos comparando en vivo contra
+// `positions` actuales — así el aviso es preciso incluso si cambia qué se vendió.
+function staleSimulatorTickers() {
+  const sim = DATA.simulator;
+  const held = {};
+  (DATA.positions || []).forEach(function(p){ held[p.ticker] = true; });
+  return (sim.rows || []).map(function(r){ return r.ticker; }).filter(function(tk){ return !held[tk]; });
+}
+
 function renderSimulator() {
   const sim = DATA.simulator, t = sim.totals;
+  const soldButCounted = staleSimulatorTickers();
+  const isPartial = soldButCounted.length > 0 || sim.excluded_tickers.length > 0;
   const tiles = [
-    {label: 'Invertido (operaciones registradas)', value: fmtUSD2(t.invested), sub: sim.date_range[0] + ' — ' + sim.date_range[1], cls: ''},
+    {label: 'Invertido (operaciones registradas' + (isPartial ? ', cobertura parcial' : '') + ')', value: fmtUSD2(t.invested), sub: sim.date_range[0] + ' — ' + sim.date_range[1], cls: ''},
     {label: 'Resultado real hoy', value: fmtUSD2(t.real_value), sub: fmtPct((t.real_value - t.invested) / t.invested) + ' vs. invertido', cls: deltaClass(t.real_value - t.invested)},
     {label: 'Si hubiera sido SPY', value: fmtUSD2(t.spy_value), sub: fmtPct((t.spy_value - t.real_value) / t.real_value) + ' vs. resultado real', cls: deltaClass(t.spy_value - t.real_value)},
     {label: 'Si hubiera sido QQQ', value: fmtUSD2(t.qqq_value), sub: fmtPct((t.qqq_value - t.real_value) / t.real_value) + ' vs. resultado real', cls: deltaClass(t.qqq_value - t.real_value)},
@@ -881,6 +1078,40 @@ function renderSimulator() {
 
   document.getElementById('sim-excluded').textContent = sim.excluded_tickers.length ?
     'No incluye ' + sim.excluded_tickers.join(', ') + ' — sin fecha de compra disponible vía la API de IBKR (posiciones más antiguas que la ventana de historial de operaciones).' : '';
+
+  const warnParts = [];
+  if (soldButCounted.length) {
+    warnParts.push('sigue contando ' + soldButCounted.join(', ') + ' como si la tuvieras (ya la vendiste)');
+  }
+  if (sim.excluded_tickers.length) {
+    warnParts.push('no incluye ' + sim.excluded_tickers.join(', ') + ' (sin fecha de compra disponible)');
+  }
+  const stEl = document.getElementById('sim-stale-warn');
+  if (stEl) {
+    stEl.textContent = warnParts.length ?
+      '⚠ Este bloque no se recalcula automáticamente y ' + warnParts.join(', y ') + ' — estos totales no son tu cartera completa ni tu capital real. Para eso mirá la pestaña Resumen.' : '';
+  }
+
+  // Reconciliación honesta: sumamos costo/valor de mercado de TODAS las posiciones que
+  // tenés hoy (vengan o no cubiertas por la comparación de benchmarks de arriba). Como
+  // usa `positions` (fresco todos los días) en vez de `simulator.rows` (congelado), esto
+  // excluye solo lo vendido y suma lo excluido — no requiere fecha de compra, así que no
+  // hay ningún número inventado. No compara contra SPY/QQQ/Bitcoin: eso sigue necesitando
+  // la fecha real de compra, que hoy no está disponible para los tickers excluidos.
+  const reconEl = document.getElementById('sim-reconcile');
+  if (reconEl) {
+    const allPos = DATA.positions || [];
+    if (allPos.length) {
+      const fullInvested = allPos.reduce(function(a, p) { return a + (p.cost_basis || 0); }, 0);
+      const fullCurrent = allPos.reduce(function(a, p) { return a + (p.market_value || 0); }, 0);
+      reconEl.innerHTML = 'Capital real en estas posiciones — todo lo que tenés hoy, cubierto o no por la comparación de arriba: ' +
+        '<b style="color:var(--text-primary); font-family:var(--mono);">' + fmtUSD2(fullInvested) + '</b> invertido, valor actual ' +
+        '<b style="color:var(--text-primary); font-family:var(--mono);">' + fmtUSD2(fullCurrent) + '</b>. ' +
+        'Esto sí cierra con tu cartera total (pestaña Resumen) — no incluye comparación contra benchmarks para lo sin fecha de compra disponible.';
+    } else {
+      reconEl.textContent = '';
+    }
+  }
 }
 
 // ===== Recomendaciones: perfil inferido =====
@@ -990,7 +1221,18 @@ function renderIdeas(answers) {
   ).join('');
 }
 
-const quizState = {risk: null, horizon: null, themes: []};
+const quizState = {
+  risk: null, horizon: null, themes: [],
+  'onb-risk': null, 'onb-horizon': null, 'onb-themes': [],
+  'onb-instruments': [], 'onb-countries': []
+};
+// Mapea cada instrumento concreto del test opcional de personalización a una de las
+// 8 temáticas que ya entiende THEME_IDEAS/renderIdeas() — así elegir "NVDA" tiene el
+// mismo efecto que tildar el chip "Tecnología" a mano.
+const INSTRUMENT_THEME_MAP = {
+  NVDA: 'tech', KO: 'dividends', RKLB: 'smallcaps', 'BRK.B': 'value', TLT: 'bonds', ICLN: 'esg',
+  EWZ: 'intl', FXI: 'intl', EWJ: 'intl', INDA: 'intl', EWG: 'intl', BTC: 'crypto'
+};
 document.querySelectorAll('.chip-row').forEach(function(row) {
   const key = row.getAttribute('data-quiz');
   const multi = row.getAttribute('data-multi') === 'true';
@@ -1012,6 +1254,99 @@ document.querySelectorAll('.chip-row').forEach(function(row) {
 document.getElementById('quiz-submit').addEventListener('click', function() {
   renderIdeas(quizState);
   document.getElementById('idea-grid').closest('section').scrollIntoView({behavior: 'smooth', block: 'start'});
+  saveProfileAnswers({ risk_tolerance: quizState.risk, horizon: quizState.horizon, themes: quizState.themes });
+});
+
+// --- Perfil de inversor persistente (asesor con IA, Fase 1) ---
+// Guarda en Supabase (tabla profiles) lo que el usuario ajusta en "Afiná tu perfil",
+// así no se pierde al recargar. No toca ninguna lógica financiera/render existente.
+let CURRENT_USER_ID = null;
+async function saveProfileAnswers(partial) {
+  if (!sb || !CURRENT_USER_ID) return;
+  try {
+    const { error } = await sb.from('profiles').update(partial).eq('id', CURRENT_USER_ID);
+    if (error) console.error('No se pudo guardar el perfil:', error);
+  } catch (err) {
+    console.error('No se pudo guardar el perfil:', err);
+  }
+}
+// Marca en el DOM los chips que ya vienen guardados en el perfil (no dispara el click
+// handler a propósito, para no volver a escribir en Supabase lo que ya vino de ahí).
+function hydrateChipRow(key, val) {
+  if (!val) return;
+  document.querySelectorAll('.chip-row[data-quiz="' + key + '"] .chip').forEach(function(chip) {
+    if (chip.getAttribute('data-value') === val) chip.classList.add('selected');
+  });
+}
+// Aplica el perfil guardado (si existe) al estado del quiz de Ideas y al saludo del header.
+function applyProfileToState(profile) {
+  if (!profile) return;
+  if (profile.risk_tolerance) quizState.risk = profile.risk_tolerance;
+  if (profile.horizon) quizState.horizon = profile.horizon;
+  if (profile.themes && profile.themes.length) quizState.themes = profile.themes.slice();
+  hydrateChipRow('risk', quizState.risk);
+  hydrateChipRow('horizon', quizState.horizon);
+  (quizState.themes || []).forEach(function(t) { hydrateChipRow('themes', t); });
+  if (profile.preferred_name) {
+    const title = document.getElementById('brand-title');
+    if (title) title.textContent = 'Cartera IBKR — ' + profile.preferred_name;
+    const onbName = document.getElementById('onb-name');
+    if (onbName) onbName.value = profile.preferred_name;
+  }
+}
+function showOnboarding() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'none';
+  document.getElementById('onboarding-screen').style.display = 'flex';
+}
+function showAuthScreen() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('onboarding-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'none';
+}
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('onboarding-screen').style.display = 'none';
+  document.getElementById('app-root').style.display = 'block';
+}
+document.getElementById('onb-deepen-btn').addEventListener('click', function() {
+  document.getElementById('onb-deepen-prompt').style.display = 'none';
+  document.getElementById('onb-deep-test').style.display = 'block';
+});
+document.getElementById('onb-submit').addEventListener('click', async function() {
+  const name = document.getElementById('onb-name').value.trim();
+  const risk = quizState['onb-risk'] || null;
+  const horizon = quizState['onb-horizon'] || null;
+  // El test de personalización (instrumentos concretos + países/cripto) es opcional y
+  // está oculto hasta que el usuario lo abre a propósito. Cada instrumento elegido suma
+  // su tema correspondiente a los que ya se hayan tildado arriba, sin pisar nada.
+  const instrumentPicks = (quizState['onb-instruments'] || []).concat(quizState['onb-countries'] || []);
+  const derivedThemes = instrumentPicks.map(function(v) { return INSTRUMENT_THEME_MAP[v]; }).filter(Boolean);
+  const themes = Array.from(new Set((quizState['onb-themes'] || []).concat(derivedThemes)));
+  quizState.risk = risk;
+  quizState.horizon = horizon;
+  quizState.themes = themes;
+  hydrateChipRow('risk', risk);
+  hydrateChipRow('horizon', horizon);
+  themes.forEach(function(t) { hydrateChipRow('themes', t); });
+  if (name) {
+    const title = document.getElementById('brand-title');
+    if (title) title.textContent = 'Cartera IBKR — ' + name;
+  }
+  await saveProfileAnswers({
+    preferred_name: name || null,
+    risk_tolerance: risk,
+    horizon: horizon,
+    themes: themes,
+    onboarded_at: new Date().toISOString()
+  });
+  showApp();
+  renderAll();
+});
+document.getElementById('onb-skip').addEventListener('click', async function() {
+  await saveProfileAnswers({ onboarded_at: new Date().toISOString() });
+  showApp();
+  renderAll();
 });
 
 // La asignación por clase de activo venía del bloque `allocation`, que no se recalcula
@@ -1166,7 +1501,16 @@ function initAuth(sb) {
   async function loadPortfolioData() {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return;
+    CURRENT_USER_ID = user.id;
     document.getElementById('user-email').textContent = user.email;
+
+    const { data: profileRows } = await sb
+      .from('profiles')
+      .select('preferred_name, risk_tolerance, horizon, themes, onboarded_at')
+      .eq('id', user.id)
+      .limit(1);
+    const profile = (profileRows && profileRows[0]) || {};
+    applyProfileToState(profile);
 
     const { data: rows, error } = await sb
       .from('portfolio_snapshots')
@@ -1176,33 +1520,31 @@ function initAuth(sb) {
 
     if (error) {
       console.error(error);
+      showApp();
       document.getElementById('app-root').innerHTML = '<div class="empty-state">Hubo un error cargando tu cartera. Probá recargar la página.</div>';
       return;
     }
     if (!rows || !rows.length) {
+      showApp();
       document.getElementById('app-root').innerHTML =
         '<div class="empty-state">Todavía no hay datos sincronizados en tu cuenta.<br>En cuanto se conecte y corra la primera sincronización, vas a ver tu cartera acá.</div>';
       return;
     }
     DATA = rows[0].data;
-    renderAll();
-  }
 
-  function showAuthScreen() {
-    document.getElementById('auth-screen').style.display = 'flex';
-    document.getElementById('app-root').style.display = 'none';
-  }
-  function showApp() {
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app-root').style.display = 'block';
-    loadPortfolioData();
+    if (!profile.onboarded_at) {
+      showOnboarding();
+    } else {
+      showApp();
+      renderAll();
+    }
   }
 
   sb.auth.onAuthStateChange(function(event, session){
-    if (session) { showApp(); } else { showAuthScreen(); }
+    if (session) { loadPortfolioData(); } else { showAuthScreen(); }
   });
   sb.auth.getSession().then(function(res){
-    if (res.data.session) { showApp(); } else { showAuthScreen(); }
+    if (res.data.session) { loadPortfolioData(); } else { showAuthScreen(); }
   });
 }
 
