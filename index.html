@@ -242,6 +242,23 @@
   .barchart .row .name { font-size: 12.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .barchart .row .bar-bg { background: var(--gridline); border-radius: 2px; height: 6px; overflow: hidden; }
   .barchart .row .bar-fill { height: 100%; border-radius: 2px; }
+  .info-dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; margin-left: 7px; vertical-align: middle;
+    border: 1px solid var(--border-hover); border-radius: 50%;
+    background: var(--surface-2); color: var(--text-muted);
+    font-family: var(--sans); font-size: 10px; font-weight: 600; font-style: normal;
+    cursor: pointer; user-select: none; transition: color .15s ease, border-color .15s ease;
+  }
+  .info-dot:hover, .info-dot:focus-visible { color: var(--text-primary); border-color: var(--text-muted); outline: none; }
+  .info-pop {
+    margin-top: 10px; padding: 12px 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text-secondary);
+    font-size: 12px; line-height: 1.6;
+  }
+  .info-pop[hidden] { display: none; }
+  .info-pop b { color: var(--text-primary); font-family: var(--mono); }
   .barchart .row .pct { font-size: 12px; font-weight: 500; text-align: right; font-family: var(--mono); }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -637,12 +654,26 @@
   <div class="section-heading">Simulador — ¿qué hubiera pasado?</div>
 
   <section class="card">
-    <h2>Comparación contra benchmarks</h2>
-    <div class="card-sub">Mismo monto, mismo día, puesto en SPY / QQQ / Bitcoin en vez de lo que compraste — llevado a precios de hoy. Cálculo simplificado: no incluye dividendos reinvertidos de los benchmarks ni fees de esa comparación hipotética.</div>
-    <div class="card-sub" id="sim-stale-warn" style="margin-top:4px;"></div>
-    <div class="tiles" id="sim-tiles" style="margin-bottom:24px;"></div>
+    <h2>Tu ganancia real</h2>
+    <div class="card-sub">Lo que pagaste por cada posición contra lo que vale hoy. Sale directo de IBKR: no estima nada, no necesita fecha de compra y cierra con la pestaña Resumen.</div>
+    <div class="tiles" id="sim-real-tiles" style="margin:16px 0 20px;"></div>
+    <div class="table-scroll">
+      <table id="sim-real-table">
+        <thead>
+          <tr><th>Ticker</th><th>Costó</th><th>Vale hoy</th><th>Ganancia</th><th>%</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card-sub" id="sim-real-foot" style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card">
+    <h2>Comparación contra benchmarks <span class="info-dot" id="sim-dot" role="button" tabindex="0" aria-label="Cómo se calcula esta comparación y qué le falta">i</span></h2>
+    <div class="card-sub" id="sim-scope"></div>
+    <div class="info-pop" id="sim-pop" hidden></div>
+    <div class="tiles" id="sim-tiles" style="margin:16px 0 24px;"></div>
     <div class="barchart" id="sim-barchart"></div>
-    <div class="card-sub" id="sim-reconcile" style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);"></div>
   </section>
 
   <section class="card">
@@ -1033,85 +1064,152 @@ function staleSimulatorTickers() {
 function renderSimulator() {
   const sim = DATA.simulator, t = sim.totals;
   const soldButCounted = staleSimulatorTickers();
-  const isPartial = soldButCounted.length > 0 || sim.excluded_tickers.length > 0;
-  const tiles = [
-    {label: 'Invertido (operaciones registradas' + (isPartial ? ', cobertura parcial' : '') + ')', value: fmtUSD2(t.invested), sub: sim.date_range[0] + ' — ' + sim.date_range[1], cls: ''},
-    {label: 'Resultado real hoy', value: fmtUSD2(t.real_value), sub: fmtPct((t.real_value - t.invested) / t.invested) + ' vs. invertido', cls: deltaClass(t.real_value - t.invested)},
-    {label: 'Si hubiera sido SPY', value: fmtUSD2(t.spy_value), sub: fmtPct((t.spy_value - t.real_value) / t.real_value) + ' vs. resultado real', cls: deltaClass(t.spy_value - t.real_value)},
-    {label: 'Si hubiera sido QQQ', value: fmtUSD2(t.qqq_value), sub: fmtPct((t.qqq_value - t.real_value) / t.real_value) + ' vs. resultado real', cls: deltaClass(t.qqq_value - t.real_value)},
-    {label: 'Si hubiera sido Bitcoin', value: fmtUSD2(t.btc_value), sub: fmtPct((t.btc_value - t.real_value) / t.real_value) + ' vs. resultado real', cls: deltaClass(t.btc_value - t.real_value)},
+  const allPos = (DATA.positions || []).slice();
+
+  // ---------------------------------------------------------------
+  // BLOQUE PRINCIPAL — ganancia real. Sale solo de `positions`, que se
+  // refresca todos los días. No usa `simulator` (congelado) ni `performance`
+  // (también congelado, ver _sync_meta). Es la cuenta simple: costó vs vale
+  // hoy. No requiere fecha de compra, así que no hay ningún número estimado.
+  // ---------------------------------------------------------------
+  const costOf = function(p) { return p.cost_basis || 0; };
+  const valOf  = function(p) { return p.market_value || 0; };
+  const totalCost = allPos.reduce(function(a, p) { return a + costOf(p); }, 0);
+  const totalVal  = allPos.reduce(function(a, p) { return a + valOf(p); }, 0);
+  const totalGain = totalVal - totalCost;
+
+  const realTiles = [
+    {label: 'Costó', value: fmtUSD2(totalCost), sub: allPos.length + ' posiciones', cls: ''},
+    {label: 'Vale hoy', value: fmtUSD2(totalVal), sub: 'valor de mercado', cls: ''},
+    {label: 'Ganancia', value: fmtUSD2(totalGain), sub: totalCost ? fmtPct(totalGain / totalCost) : '', cls: deltaClass(totalGain)},
   ];
-  document.getElementById('sim-tiles').innerHTML = tiles.map(x =>
-    '<div class="tile"><div class="t-label">' + x.label + '</div>' +
-    '<div class="t-value ' + x.cls + '">' + x.value + '</div>' +
-    '<div class="t-sub">' + x.sub + '</div></div>'
-  ).join('');
+  const rtEl = document.getElementById('sim-real-tiles');
+  if (rtEl) {
+    rtEl.innerHTML = realTiles.map(function(x) {
+      return '<div class="tile"><div class="t-label">' + x.label + '</div>' +
+        '<div class="t-value ' + x.cls + '">' + x.value + '</div>' +
+        '<div class="t-sub">' + x.sub + '</div></div>';
+    }).join('');
+  }
+
+  const rtb = document.querySelector('#sim-real-table tbody');
+  if (rtb) {
+    const ordered = allPos.slice().sort(function(a, b) {
+      return (valOf(b) - costOf(b)) - (valOf(a) - costOf(a));
+    });
+    rtb.innerHTML = ordered.map(function(p) {
+      const c = costOf(p), v = valOf(p), g = v - c;
+      return '<tr>' +
+        '<td><span class="ticker-pill">' + p.ticker + '</span></td>' +
+        '<td>' + fmtUSD2(c) + '</td>' +
+        '<td>' + fmtUSD2(v) + '</td>' +
+        '<td class="' + deltaClass(g) + '">' + fmtUSD2(g) + '</td>' +
+        '<td class="' + deltaClass(g) + '">' + (c ? fmtPct(g / c) : '—') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  const rfEl = document.getElementById('sim-real-foot');
+  if (rfEl) {
+    rfEl.innerHTML = 'Es la cuenta simple, posición por posición: lo que pagaste contra lo que vale hoy. ' +
+      'Coincide con el resultado no realizado que reporta IBKR. ' +
+      'Ojo: esto es la plusvalía de lo que tenés hoy — no es el rendimiento de la cuenta, ' +
+      'que además depende de cuándo pusiste la plata y de los dividendos cobrados.';
+  }
+
+  // ---------------------------------------------------------------
+  // BLOQUE SECUNDARIO — comparación contra benchmarks. Degradado a propósito:
+  // solo cubre las posiciones con fecha de compra conocida, así que sus totales
+  // en dólares no son la cartera. Se muestra en porcentaje sobre lo invertido
+  // en ESE subconjunto, que sí es comparable entre sí.
+  // ---------------------------------------------------------------
+  const held = {};
+  allPos.forEach(function(p) { held[p.ticker] = true; });
+  const coveredHeld = (sim.rows || []).filter(function(r) { return held[r.ticker]; }).length;
+
+  const scEl = document.getElementById('sim-scope');
+  if (scEl) {
+    scEl.textContent = 'Mismo monto, mismo día, puesto en SPY / QQQ / Bitcoin en vez de lo que compraste. ' +
+      'Comparación posible sobre ' + coveredHeld + ' de tus ' + allPos.length + ' posiciones — ' +
+      'las demás no tienen fecha de compra disponible.';
+  }
+
+  const popEl = document.getElementById('sim-pop');
+  if (popEl) {
+    const bits = [];
+    bits.push('Para comparar contra un índice hace falta saber <b>cuándo</b> compraste, no solo a qué precio: ' +
+      'el mismo monto puesto en SPY en 2024 o en 2025 da resultados muy distintos.');
+    if (sim.excluded_tickers.length) {
+      bits.push('Sin fecha de compra disponible vía la API de IBKR: <b>' + sim.excluded_tickers.join(', ') + '</b>. ' +
+        'Quedan afuera de esta comparación (pero sí están en tu ganancia real, arriba).');
+    }
+    if (soldButCounted.length) {
+      bits.push('Además este bloque no se recalcula en cada sync y todavía cuenta <b>' + soldButCounted.join(', ') + '</b>, que ya vendiste.');
+    }
+    bits.push('No incluye dividendos reinvertidos de los benchmarks, ni comisiones, ni impuestos. ' +
+      'Los porcentajes son sobre lo invertido en las posiciones cubiertas, no sobre tu cartera.');
+    popEl.innerHTML = bits.join('<br><br>');
+  }
+
+  if (!renderSimulator._dotWired) {
+    const dot = document.getElementById('sim-dot');
+    if (dot) {
+      const toggle = function() {
+        const pop = document.getElementById('sim-pop');
+        if (pop) pop.hidden = !pop.hidden;
+      };
+      dot.addEventListener('click', toggle);
+      dot.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+      });
+      renderSimulator._dotWired = true;
+    }
+  }
+
+  const base = t.invested;
+  const rel = function(v) { return base ? (v - base) / base : 0; };
+  const tiles = [
+    {label: 'Tu resultado', value: fmtPct(rel(t.real_value)), cls: deltaClass(t.real_value - base)},
+    {label: 'Si hubiera sido SPY', value: fmtPct(rel(t.spy_value)), cls: deltaClass(t.spy_value - base)},
+    {label: 'Si hubiera sido QQQ', value: fmtPct(rel(t.qqq_value)), cls: deltaClass(t.qqq_value - base)},
+    {label: 'Si hubiera sido Bitcoin', value: fmtPct(rel(t.btc_value)), cls: deltaClass(t.btc_value - base)},
+  ];
+  document.getElementById('sim-tiles').innerHTML = tiles.map(function(x) {
+    return '<div class="tile"><div class="t-label">' + x.label + '</div>' +
+      '<div class="t-value ' + x.cls + '">' + x.value + '</div>' +
+      '<div class="t-sub">sobre lo invertido en las cubiertas</div></div>';
+  }).join('');
 
   const barItems = [
-    {name: 'Invertido', value: t.invested, color: cssVar('--text-muted')},
-    {name: 'Resultado real', value: t.real_value, color: cssVar('--s1')},
+    {name: 'Tu resultado', value: t.real_value, color: cssVar('--s1')},
     {name: 'Si SPY', value: t.spy_value, color: cssVar('--s2')},
     {name: 'Si QQQ', value: t.qqq_value, color: cssVar('--s3')},
     {name: 'Si Bitcoin', value: t.btc_value, color: cssVar('--s4')},
   ];
-  const maxVal = Math.max(...barItems.map(b => b.value));
-  document.getElementById('sim-barchart').innerHTML = barItems.map(item => {
+  const maxVal = Math.max.apply(null, barItems.map(function(b) { return b.value; }));
+  document.getElementById('sim-barchart').innerHTML = barItems.map(function(item) {
     const pct = (item.value / maxVal) * 100;
     return '<div class="row">' +
       '<div class="name">' + item.name + '</div>' +
       '<div class="bar-bg"><div class="bar-fill" style="width:' + Math.max(pct, 1.2) + '%;background:' + item.color + ';"></div></div>' +
-      '<div class="pct">' + fmtUSD(item.value) + '</div>' +
+      '<div class="pct ' + deltaClass(item.value - base) + '">' + fmtPct(rel(item.value)) + '</div>' +
       '</div>';
   }).join('');
 
   const tbody = document.querySelector('#sim-table tbody');
-  tbody.innerHTML = sim.rows.map(r =>
-    '<tr>' +
-    '<td><span class="ticker-pill">' + r.ticker + '</span></td>' +
-    '<td>' + fmtUSD2(r.invested) + '</td>' +
-    '<td>' + fmtUSD2(r.real_value) + '</td>' +
-    '<td>' + simDeltaSpan(r.spy_value, r.real_value) + '</td>' +
-    '<td>' + simDeltaSpan(r.qqq_value, r.real_value) + '</td>' +
-    '<td>' + simDeltaSpan(r.btc_value, r.real_value) + '</td>' +
-    '</tr>'
-  ).join('');
+  tbody.innerHTML = sim.rows.map(function(r) {
+    return '<tr>' +
+      '<td><span class="ticker-pill">' + r.ticker + '</span></td>' +
+      '<td>' + fmtUSD2(r.invested) + '</td>' +
+      '<td>' + fmtUSD2(r.real_value) + '</td>' +
+      '<td>' + simDeltaSpan(r.spy_value, r.real_value) + '</td>' +
+      '<td>' + simDeltaSpan(r.qqq_value, r.real_value) + '</td>' +
+      '<td>' + simDeltaSpan(r.btc_value, r.real_value) + '</td>' +
+      '</tr>';
+  }).join('');
 
   document.getElementById('sim-excluded').textContent = sim.excluded_tickers.length ?
     'No incluye ' + sim.excluded_tickers.join(', ') + ' — sin fecha de compra disponible vía la API de IBKR (posiciones más antiguas que la ventana de historial de operaciones).' : '';
-
-  const warnParts = [];
-  if (soldButCounted.length) {
-    warnParts.push('sigue contando ' + soldButCounted.join(', ') + ' como si la tuvieras (ya la vendiste)');
-  }
-  if (sim.excluded_tickers.length) {
-    warnParts.push('no incluye ' + sim.excluded_tickers.join(', ') + ' (sin fecha de compra disponible)');
-  }
-  const stEl = document.getElementById('sim-stale-warn');
-  if (stEl) {
-    stEl.textContent = warnParts.length ?
-      '⚠ Este bloque no se recalcula automáticamente y ' + warnParts.join(', y ') + ' — estos totales no son tu cartera completa ni tu capital real. Para eso mirá la pestaña Resumen.' : '';
-  }
-
-  // Reconciliación honesta: sumamos costo/valor de mercado de TODAS las posiciones que
-  // tenés hoy (vengan o no cubiertas por la comparación de benchmarks de arriba). Como
-  // usa `positions` (fresco todos los días) en vez de `simulator.rows` (congelado), esto
-  // excluye solo lo vendido y suma lo excluido — no requiere fecha de compra, así que no
-  // hay ningún número inventado. No compara contra SPY/QQQ/Bitcoin: eso sigue necesitando
-  // la fecha real de compra, que hoy no está disponible para los tickers excluidos.
-  const reconEl = document.getElementById('sim-reconcile');
-  if (reconEl) {
-    const allPos = DATA.positions || [];
-    if (allPos.length) {
-      const fullInvested = allPos.reduce(function(a, p) { return a + (p.cost_basis || 0); }, 0);
-      const fullCurrent = allPos.reduce(function(a, p) { return a + (p.market_value || 0); }, 0);
-      reconEl.innerHTML = 'Capital real en estas posiciones — todo lo que tenés hoy, cubierto o no por la comparación de arriba: ' +
-        '<b style="color:var(--text-primary); font-family:var(--mono);">' + fmtUSD2(fullInvested) + '</b> invertido, valor actual ' +
-        '<b style="color:var(--text-primary); font-family:var(--mono);">' + fmtUSD2(fullCurrent) + '</b>. ' +
-        'Esto sí cierra con tu cartera total (pestaña Resumen) — no incluye comparación contra benchmarks para lo sin fecha de compra disponible.';
-    } else {
-      reconEl.textContent = '';
-    }
-  }
 }
 
 // ===== Recomendaciones: perfil inferido =====
