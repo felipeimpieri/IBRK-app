@@ -42,6 +42,7 @@
     --shadow-lg: 0 30px 70px -26px rgba(0,0,0,.85);
     --rim:            rgba(255,255,255,.10);
     --glass-fill:     rgba(255,255,255,.10);
+    --tile-scrim:     rgba(8,11,20,.62);
     --glass-blur:     26px;
     --hero-photo:     url('https://images.unsplash.com/photo-1632885510356-10a48770a9cd?w=1600&q=70&auto=format');
     --app-wash:       linear-gradient(155deg,rgba(8,11,20,.88) 0%,rgba(8,11,20,.79) 42%,rgba(8,11,20,.92) 100%);
@@ -78,6 +79,8 @@
       --shadow-lg: 0 30px 66px -28px rgba(60,45,18,.36);
       --rim:            rgba(255,255,255,.66);
       --glass-fill:     rgba(255,255,255,.62);
+    --tile-scrim:     rgba(255,255,255,.42);
+      --tile-scrim:     rgba(255,255,255,.42);
       --glass-blur:     26px;
       --hero-photo:     url('https://images.unsplash.com/photo-1687289133469-b2a07a13b78b?w=1600&q=70&auto=format');
       --app-wash:       linear-gradient(155deg,rgba(240,233,218,.82) 0%,rgba(240,233,218,.74) 42%,rgba(240,233,218,.88) 100%);
@@ -206,7 +209,11 @@
     box-shadow: var(--shadow-md), inset 0 1px 0 var(--rim);
     backdrop-filter: blur(var(--glass-blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   }
-  .tile { background: var(--glass-fill); padding: 18px 20px; transition: background 0.15s ease; }
+  .tile { position: relative; background: var(--glass-fill); padding: 18px 20px; transition: background 0.15s ease; }
+  /* El glass es casi transparente: sobre las zonas claras del fondo los numeros se lavaban
+     (reportado 2026-08-20 en tema oscuro). Este velo fija el contraste sin sacar el efecto. */
+  .tile::before { content: ''; position: absolute; inset: 0; background: var(--tile-scrim); pointer-events: none; }
+  .tile > * { position: relative; }
   .tile .t-label { font-size: 9.5px; font-weight: 500; color: var(--text-muted); margin-bottom: 11px; text-transform: uppercase; letter-spacing: 0.12em; }
   .tile .t-value { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; font-family: var(--mono); }
   .tile .t-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; }
@@ -238,7 +245,7 @@
   }
 
   /* bar charts */
-  .barchart .row { display: grid; grid-template-columns: 150px 1fr 50px; align-items: center; gap: 10px; margin: 12px 0; }
+  .barchart .row { display: grid; grid-template-columns: 150px 1fr auto; align-items: center; gap: 10px; margin: 12px 0; }
   .barchart .row .name { font-size: 12.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .barchart .row .bar-bg { background: var(--gridline); border-radius: 2px; height: 6px; overflow: hidden; }
   .barchart .row .bar-fill { height: 100%; border-radius: 2px; }
@@ -259,7 +266,8 @@
   }
   .info-pop[hidden] { display: none; }
   .info-pop b { color: var(--text-primary); font-family: var(--mono); }
-  .barchart .row .pct { font-size: 12px; font-weight: 500; text-align: right; font-family: var(--mono); }
+  .barchart .row .pct { font-size: 12px; font-weight: 500; text-align: right; font-family: var(--mono); white-space: nowrap; color: var(--text-secondary); min-width: 118px; }
+  .barchart .row .pct span { margin-left: 8px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   thead th {
@@ -1166,21 +1174,31 @@ function renderSimulator() {
     }
   }
 
+  // Monto Y porcentaje juntos: un % suelto no dice nada si no se ve sobre cuánta plata
+  // se calculó. El riesgo de confundir estos dólares con la cartera ya está cubierto por
+  // la tarjeta "Tu ganancia real" de arriba y por el alcance explícito en el subtítulo.
   const base = t.invested;
   const rel = function(v) { return base ? (v - base) / base : 0; };
   const tiles = [
-    {label: 'Tu resultado', value: fmtPct(rel(t.real_value)), cls: deltaClass(t.real_value - base)},
-    {label: 'Si hubiera sido SPY', value: fmtPct(rel(t.spy_value)), cls: deltaClass(t.spy_value - base)},
-    {label: 'Si hubiera sido QQQ', value: fmtPct(rel(t.qqq_value)), cls: deltaClass(t.qqq_value - base)},
-    {label: 'Si hubiera sido Bitcoin', value: fmtPct(rel(t.btc_value)), cls: deltaClass(t.btc_value - base)},
+    {label: 'Invertido en las cubiertas', value: fmtUSD2(base),
+     sub: sim.date_range[0] + ' — ' + sim.date_range[1], cls: ''},
+    {label: 'Tu resultado', value: fmtUSD2(t.real_value),
+     sub: fmtPct(rel(t.real_value)), cls: deltaClass(t.real_value - base)},
+    {label: 'Si hubiera sido SPY', value: fmtUSD2(t.spy_value),
+     sub: fmtPct(rel(t.spy_value)), cls: deltaClass(t.spy_value - base)},
+    {label: 'Si hubiera sido QQQ', value: fmtUSD2(t.qqq_value),
+     sub: fmtPct(rel(t.qqq_value)), cls: deltaClass(t.qqq_value - base)},
+    {label: 'Si hubiera sido Bitcoin', value: fmtUSD2(t.btc_value),
+     sub: fmtPct(rel(t.btc_value)), cls: deltaClass(t.btc_value - base)},
   ];
   document.getElementById('sim-tiles').innerHTML = tiles.map(function(x) {
     return '<div class="tile"><div class="t-label">' + x.label + '</div>' +
       '<div class="t-value ' + x.cls + '">' + x.value + '</div>' +
-      '<div class="t-sub">sobre lo invertido en las cubiertas</div></div>';
+      '<div class="t-sub">' + x.sub + '</div></div>';
   }).join('');
 
   const barItems = [
+    {name: 'Invertido', value: base, color: cssVar('--text-muted')},
     {name: 'Tu resultado', value: t.real_value, color: cssVar('--s1')},
     {name: 'Si SPY', value: t.spy_value, color: cssVar('--s2')},
     {name: 'Si QQQ', value: t.qqq_value, color: cssVar('--s3')},
@@ -1188,11 +1206,14 @@ function renderSimulator() {
   ];
   const maxVal = Math.max.apply(null, barItems.map(function(b) { return b.value; }));
   document.getElementById('sim-barchart').innerHTML = barItems.map(function(item) {
-    const pct = (item.value / maxVal) * 100;
+    const w = (item.value / maxVal) * 100;
+    const isBase = item.name === 'Invertido';
     return '<div class="row">' +
       '<div class="name">' + item.name + '</div>' +
-      '<div class="bar-bg"><div class="bar-fill" style="width:' + Math.max(pct, 1.2) + '%;background:' + item.color + ';"></div></div>' +
-      '<div class="pct ' + deltaClass(item.value - base) + '">' + fmtPct(rel(item.value)) + '</div>' +
+      '<div class="bar-bg"><div class="bar-fill" style="width:' + Math.max(w, 1.2) + '%;background:' + item.color + ';"></div></div>' +
+      '<div class="pct">' + fmtUSD(item.value) +
+        (isBase ? '' : ' <span class="' + deltaClass(item.value - base) + '">' + fmtPct(rel(item.value)) + '</span>') +
+      '</div>' +
       '</div>';
   }).join('');
 
