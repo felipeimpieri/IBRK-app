@@ -13,3 +13,8 @@ desktop.ini
 
 # Descartes a revisar y borrar a mano
 _to_delete/
+
+# Salida de los tests (capturas, artefactos de Playwright)
+tests/output/
+*.png
+!docs/**/*.png

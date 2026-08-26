@@ -1,0 +1,62 @@
+{
+  "generated_at": "2026-07-28T22:37:17Z",
+  "summary": {
+    "net_liquidation": 23495.51,
+    "cash": 389.26,
+    "gross_position_value": 23088.35,
+    "unrealized_pnl": 3387.52,
+    "unrealized_pnl_pct": 0.17206699007112028,
+    "daily_pnl": 157.11704201999996,
+    "daily_pnl_pct": 0.00600788,
+    "dividends_accrued": 17.9,
+    "realized_pnl": 0
+  },
+  "performance": {
+    "1D": 0.00600788,
+    "7D": -0.00961941,
+    "MTD": -0.0186687,
+    "1M": 0.00715001,
+    "YTD": 0.01059938,
+    "1Y": 0.1121219
+  },
+  "performance_series": {
+    "dates": ["20260101","20260102","20260728"],
+    "cps": [0, -0.00208504, 0.01059938]
+  },
+  "allocation": {
+    "asset_class": [
+      {"name": "Acciones (Equities)", "weight": 0.94623263},
+      {"name": "Real Estate", "weight": 0.03642806},
+      {"name": "Cash", "weight": 0.01733931}
+    ],
+    "sector": [
+      {"name": "Broad (ETFs)", "weight": 0.43015856},
+      {"name": "Technology", "weight": 0.1463936}
+    ],
+    "country": [
+      {"name": "Estados Unidos", "weight": 0.91422744},
+      {"name": "Argentina", "weight": 0.07931726}
+    ],
+    "instrument": [
+      {"name": "Acciones", "weight": 0.52277606},
+      {"name": "ETFs", "weight": 0.45988463}
+    ]
+  },
+  "positions": [
+    {"ticker": "SPY", "name": "SPDR S&P 500 ETF Trust", "qty": 10, "avg_price": 615.89203, "price": 740.45, "market_value": 7404.5, "cost_basis": 6158.92, "unrealized_pnl": 1245.58, "unrealized_pnl_pct": 0.2022, "daily_pnl": 13.6, "weight": 0.3206, "asset_class": "STK"},
+    {"ticker": "GOOGL", "name": "Alphabet Inc Cl A", "qty": 10, "avg_price": 157.4, "price": 334.24, "market_value": 3342.4, "cost_basis": 1574.0, "unrealized_pnl": 1768.4, "unrealized_pnl_pct": 1.1235, "daily_pnl": 76.8, "weight": 0.1447, "asset_class": "STK"}
+  ],
+  "trades": [
+    {"ticker": "BRK.B", "side": "Compra", "qty": 1, "price": 492.78, "date": "2026-03-12", "commission": 1, "net_amount": 492.78}
+  ],
+  "simulator": {
+    "rows": [
+      {"ticker": "SPY", "invested": 2725.52, "real_value": 2961.8, "spy_value": 2966.37, "qqq_value": 3062.64, "btc_value": 2375.5, "dates": ["2026-03-03"]},
+      {"ticker": "JNJ", "invested": 975.86, "real_value": 1068.4, "spy_value": 1067.04, "qqq_value": 1085.4, "btc_value": 879.57, "dates": ["2026-03-10"]}
+    ],
+    "totals": {"invested": 9515.98, "real_value": 9534.32, "spy_value": 10396.17, "qqq_value": 10634.24, "btc_value": 8466.28},
+    "covered_tickers": ["SPY", "JNJ"],
+    "excluded_tickers": ["GOOGL"],
+    "date_range": ["2026-03-03", "2026-03-12"]
+  }
+}
