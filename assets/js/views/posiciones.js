@@ -5,7 +5,7 @@ import { deltaClass, fmtNum, fmtPct, fmtUSD2 } from './../format.js';
 import { DATA } from './../state.js';
 
 export function renderPositions() {
-  const rows = DATA.positions;
+  const rows = DATA.positions || [];
   document.getElementById('positions-sub').textContent = rows.length + ' posiciones abiertas';
   const tbody = document.querySelector('#positions-table tbody');
   tbody.innerHTML = rows.map(p =>
@@ -23,7 +23,7 @@ export function renderPositions() {
 }
 
 export function renderTrades() {
-  const rows = DATA.trades;
+  const rows = DATA.trades || [];
   const tbody = document.querySelector('#trades-table tbody');
   tbody.innerHTML = rows.map(t =>
     '<tr>' +

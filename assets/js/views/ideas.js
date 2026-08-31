@@ -21,7 +21,7 @@ export const DEFAULT_GAP_THEMES = ['bonds', 'intl'];
 
 // ===== Recomendaciones: perfil inferido =====
 export function computeProfileInsights() {
-  const alloc = DATA.allocation, pos = DATA.positions;
+  const alloc = DATA.allocation, pos = DATA.positions || [];
   const insights = [];
 
   const sectors = alloc.sector.filter(s => s.name !== 'Cash').slice().sort((a, b) => b.weight - a.weight);
@@ -51,7 +51,7 @@ export function computeProfileInsights() {
 }
 
 export function computeAdjustmentInsights() {
-  const pos = DATA.positions, alloc = DATA.allocation;
+  const pos = DATA.positions || [], alloc = DATA.allocation;
   const byTicker = {};
   pos.forEach(p => byTicker[p.ticker] = p.weight);
   const insights = [];

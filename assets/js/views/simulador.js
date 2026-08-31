@@ -16,6 +16,7 @@ export function simDeltaSpan(value, base) {
 // `positions` actuales — así el aviso es preciso incluso si cambia qué se vendió.
 export function staleSimulatorTickers() {
   const sim = DATA.simulator;
+  if (!sim) return [];
   const held = {};
   (DATA.positions || []).forEach(function(p){ held[p.ticker] = true; });
   return (sim.rows || []).map(function(r){ return r.ticker; }).filter(function(tk){ return !held[tk]; });
@@ -85,7 +86,37 @@ function renderGananciaReal() {
 /** Bloque secundario: comparacion contra indices. Solo cubre las posiciones
  *  con fecha de compra conocida, por eso va debajo y con su alcance escrito. */
 function renderBenchmarks() {
-  const sim = DATA.simulator, t = sim.totals;
+  const sim = DATA.simulator;
+
+  // El bloque `simulator` (comparacion contra SPY/QQQ/Bitcoin) se armaba antes
+  // con un script manual (compute_data.py) y nunca lo recalculaba la sync
+  // automatica -- ya estaba marcado como pendiente de fondo (ver
+  // cartera/motor-retorno-real.md). Con el cambio de minimizacion de datos
+  // (agosto 2026) el snapshot que guarda el server dejo de incluirlo del
+  // todo, asi que este bloque ya no tiene ninguna fuente de datos y no va a
+  // llegar por ningun camino -- mostramos un estado honesto en vez de
+  // intentar leer un campo que no existe.
+  if (!sim || !sim.totals) {
+    const scEl = document.getElementById('sim-scope');
+    if (scEl) scEl.textContent = 'Comparación no disponible por ahora.';
+    const popEl = document.getElementById('sim-pop');
+    if (popEl) {
+      popEl.innerHTML = 'Este bloque comparaba tu cartera contra SPY, QQQ y Bitcoin. Con el cambio para que el servidor ' +
+        'no guarde el detalle de tus posiciones, esta comparación específica quedó pendiente de rehacerse de otra forma ' +
+        '(el resto de la app no depende de esto — "Tu ganancia real", arriba, sigue siendo exacta).';
+    }
+    const tilesEl = document.getElementById('sim-tiles');
+    if (tilesEl) tilesEl.innerHTML = '';
+    const barEl = document.getElementById('sim-barchart');
+    if (barEl) barEl.innerHTML = '';
+    const exEl = document.getElementById('sim-excluded');
+    if (exEl) exEl.textContent = '';
+    const tbody = document.querySelector('#sim-table tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No disponible por ahora.</td></tr>';
+    return;
+  }
+
+  const t = sim.totals;
   const soldButCounted = staleSimulatorTickers();
   const allPos = (DATA.positions || []).slice();
   // ---------------------------------------------------------------
