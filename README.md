@@ -6,6 +6,10 @@ hacia Supabase. Multi-usuario, con login propio y datos aislados por cliente.
 
 **En producción:** https://eve-chat-template-chi-dusky.vercel.app
 
+**¿Retomando esto después de una pausa, o en una herramienta nueva?** Empezá por
+[`HANDOFF.md`](HANDOFF.md) — qué se decidió, qué se construyó en la sesión más reciente, qué
+quedó pendiente y por qué, incluido un bug ya diagnosticado y sin arreglar todavía.
+
 ---
 
 ## Cómo correrlo
@@ -81,6 +85,7 @@ docs/                   ↓
 
 | Doc | Para qué |
 |---|---|
+| [HANDOFF.md](HANDOFF.md) | Empezar acá si no tenés contexto previo: qué se decidió, qué se construyó último, qué falta |
 | [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Mapa de módulos, quién depende de quién, cómo fluyen los datos |
 | [docs/DATOS.md](docs/DATOS.md) | Shape del snapshot y **qué campos están frescos y cuáles congelados** |
 | [docs/AUDITORIA.md](docs/AUDITORIA.md) | Los bugs de datos encontrados, su estado, y las funciones protegidas |

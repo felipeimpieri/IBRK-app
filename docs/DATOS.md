@@ -1,7 +1,9 @@
 # Datos
 
 Todo lo que dibuja la app sale de **una sola fila** de `portfolio_snapshots`: la más reciente
-del usuario logueado. `samples/data.json` es un ejemplo real de ese shape.
+del usuario logueado. `samples/data.json` es un ejemplo real de ese shape — **desactualizado
+desde el 2026-08-28** (todavía muestra `positions`/`trades` crudos; ver el aviso más abajo antes
+de guiarte por él).
 
 ```sql
 select data from portfolio_snapshots
@@ -9,23 +11,45 @@ where user_id = auth.uid()
 order by captured_at desc limit 1;
 ```
 
+## ⚠ Cambio importante (2026-08-28): el snapshot ya NO trae `positions` ni `trades`
+
+Por decisión de producto ("cada usuario su mundo", ver `docs/DECISIONES.md`), `sync-ibkr` dejó de
+guardar el detalle crudo por ticker y por operación en `portfolio_snapshots.data`. Lo que antes
+eran los arrays `positions` y `trades` ahora es un `positions_count` (un número) y un `real_gain`
+agregado (costo total / valor total / ganancia total / ganancia %). Quien necesite el detalle real
+—Posiciones, Simulador, Ideas— lo pide en el momento a la Edge Function `fetch-positions`
+(autenticada con el JWT del propio usuario) y lo recibe solo en la respuesta HTTP, nunca guardado
+en ninguna tabla. Del lado del front, `assets/js/positions-detail.js` lo cachea en memoria durante
+esa sesión de navegación, nada más.
+
+**Consecuencia práctica para cualquiera que lea o escriba código acá:** `DATA.positions` y
+`DATA.trades` ya no vienen poblados por default al cargar el snapshot — solo existen después de
+que `ensurePositionsDetail()` resuelve. Cualquier función que los use tiene que asumir que pueden
+venir `undefined` (patrón ya aplicado: `(DATA.positions || [])`). El detalle completo de esta
+arquitectura, incluida la razón (CORS de IBKR no admite llamarse directo desde el navegador, así
+que hace falta un servidor intermedio) y un bug real que produjo esto en Resumen, está en
+`HANDOFF.md` en la raíz del repo.
+
 ## Lo más importante de este documento
 
-**No todos los campos del snapshot se actualizan.** La Edge Function refresca algunos en cada
-sync y otros quedaron congelados en la última carga manual. El propio snapshot lo declara en
-`_sync_meta.note`. Mezclarlos es lo que produjo los peores bugs del proyecto.
+**No todos los campos del snapshot se actualizan, y algunos ya ni existen ahí.** La Edge Function
+refresca algunos en cada sync, otros quedaron congelados en la última carga manual, y dos
+(`positions`/`trades`) se sacaron a propósito y viven ahora solo del lado on-demand. El propio
+snapshot declara lo congelado en `_sync_meta.note`. Mezclar todo esto es lo que produjo los peores
+bugs del proyecto.
 
 | Campo | ¿Se actualiza? | Notas |
 |---|---|---|
 | `summary` | ✅ cada sync | NAV, efectivo, valor de posiciones, dividendos devengados |
-| `positions` | ✅ cada sync | **La fuente confiable.** Ticker, cantidad, costo, valor de mercado, P&L |
-| `trades` | ✅ cada sync | Solo dentro de la ventana de la Flex Query (~12 meses) |
-| `allocation.asset_class` | ⚠️ se recalcula en el front | `finance.js → assetClassAllocation()` |
+| `positions_count` | ✅ cada sync | Reemplaza a `positions` desde el 2026-08-28. Es solo un número. |
+| `real_gain` | ✅ cada sync | `{ total_cost, total_value, total_gain, total_gain_pct }` — agregado, sin desglose por ticker. Reemplaza el cálculo que antes se hacía en el front desde `positions` crudo. |
+| `allocation.asset_class` | ⚠️ se recalcula en el front | `finance.js → assetClassAllocation()`, ahora sobre `DATA.positions` **on-demand** (ver arriba) — no sobre nada que venga en el snapshot |
 | `allocation.sector` | ❌ congelado | Se avisa en pantalla |
 | `allocation.country` | ❌ congelado | Se avisa en pantalla |
 | `performance` | ❌ **congelado** | 1D/7D/MTD/1M/YTD/1Y — ver abajo |
 | `performance_series` | ❌ congelado | Último punto: 2026-07-28 |
-| `simulator` | ❌ congelado | Sigue contando posiciones ya vendidas |
+| `positions` / `trades` | ⛔ **ya no vienen en el snapshot** | Se piden on-demand a `fetch-positions`, nunca se guardan. Ver aviso arriba. |
+| `simulator` | ⛔ **ya no existe, para ningún snapshot nuevo** | Ya venía congelado (contaba posiciones vendidas); ahora directamente no hay de dónde recalcularlo del lado del servidor. La app muestra "no disponible" en vez de intentarlo — ver `HANDOFF.md`. |
 
 ### El caso de `performance` (importante)
 
@@ -39,12 +63,12 @@ El plan está en el doc `cartera/motor-retorno-real.md` del proyecto.
 Excepción: `performance['1D']` sí se refresca hoy, y es lo que usa `dailyChange()`. Si algún
 día deja de hacerlo, el hero vuelve a mostrar mal la variación diaria sin ningún aviso.
 
-## Shape del snapshot
+## Shape del snapshot (desde el 2026-08-28)
 
 ```
 data
 ├── generated_at            ISO8601, cuándo corrió la sync
-├── _sync_meta              { source, note, trades_in_this_statement }
+├── _sync_meta              { source, note, trades_in_this_statement, data_minimization }
 ├── summary                 net_liquidation · cash · gross_position_value
 │                           unrealized_pnl · daily_pnl · dividends_accrued · realized_pnl
 ├── performance             { "1D", "7D", "MTD", "1M", "YTD", "1Y" }   ← congelado
@@ -54,35 +78,49 @@ data
 │   ├── sector              [ { name, weight } ]   ← congelado
 │   ├── country             [ { name, weight } ]   ← congelado
 │   └── instrument          [ { name, weight } ]
-├── positions               [ { ticker, name, qty, avg_price, price, market_value,
-│                              cost_basis, unrealized_pnl, unrealized_pnl_pct,
-│                              daily_pnl, weight, asset_class } ]
-├── trades                  [ { ticker, side, qty, price, date, commission, net_amount } ]
-└── simulator                                                          ← congelado
-    ├── rows                [ { ticker, invested, real_value, spy_value,
-    │                           qqq_value, btc_value, dates: [...] } ]
-    ├── totals              mismos campos, sumados
-    ├── covered_tickers     los que tienen fecha de compra conocida
-    ├── excluded_tickers    los que no la tienen
-    └── date_range          [ primera, última ]
+├── positions_count         número. Antes era el array positions[] completo — ver aviso arriba.
+└── real_gain                { total_cost, total_value, total_gain, total_gain_pct }
 ```
+
+`positions`, `trades` y `simulator` **ya no son parte de este shape.** El detalle por ticker se
+pide aparte, a demanda, a la Edge Function `fetch-positions` (ver `assets/js/positions-detail.js`)
+y nunca se persiste. Esa respuesta (no el snapshot) tiene este shape:
+
+```
+{ positions: [ { ticker, name, qty, avg_price, price, market_value, cost_basis,
+                 unrealized_pnl, unrealized_pnl_pct, daily_pnl, weight, asset_class } ],
+  trades:    [ { ticker, side, qty, price, date, commission, net_amount } ],
+  generated_at }
+```
+
+`samples/data.json` sigue teniendo el shape viejo completo (con `positions`/`trades`/`simulator`
+crudos adentro del snapshot) — sirve para ver los *nombres de campo* de cada posición/operación,
+pero ya no representa lo que trae `portfolio_snapshots.data` hoy. Pendiente: separarlo en dos
+samples, uno por cada shape.
 
 ## Trampas conocidas
 
 **`daily_pnl` no es diario.** Es el P&L acumulado desde que se abrió la posición dentro del
 período del statement. Para las posiciones compradas dentro del período es *idéntico* a
 `unrealized_pnl`. Por eso existe `dailyChange()`. La columna de la tabla se llama
-"P&L del período", no "P&L diario", a propósito.
+"P&L del período", no "P&L diario", a propósito. (Esta función sigue viva sin cambios — usa
+`DATA.performance`/`DATA.summary`, que sí siguen viniendo en el snapshot.)
 
 **`realized_pnl` viene en cero** aunque haya ventas cerradas. Se recalcula en el front desde
-`trades` (`computeRealized()`).
+`trades` (`computeRealized()`) — desde el 2026-08-28, `DATA.trades` viene del detalle on-demand,
+no del snapshot, así que este número no está disponible hasta que `fetch-positions` resuelve.
 
 **`NAV = posiciones + efectivo + dividendos devengados.** Sin la tercera línea las barras de
-asignación suman 99,97% y no 100%.
+asignación suman 99,97% y no 100%. Y desde el 2026-08-28 hay una trampa nueva relacionada: la
+barra de asignación por clase de activo (`assetClassAllocation()`) se dibuja una vez, de forma
+síncrona, antes de que el detalle on-demand llegue — con `DATA.positions` todavía vacío. Es un bug
+real, encontrado y documentado sin arreglar todavía en `HANDOFF.md` (raíz del repo).
 
-**`simulator` no es tu cartera.** Solo cubre las posiciones con fecha de compra conocida.
-Al 2026-08-20: 9 de 14. Sus totales en dólares no cierran con nada y por eso están en la
-tarjeta secundaria, no en la principal.
+**`simulator` ya no existe para ningún snapshot nuevo.** Antes era "no tu cartera completa,
+solo cubre las posiciones con fecha de compra conocida" (al 2026-08-20: 9 de 14, sus totales en
+dólares no cerraban con nada). Ahora directamente no hay de dónde recalcularlo del lado del
+servidor — la app muestra "no disponible" en Simulador en vez de intentarlo. Ver `HANDOFF.md`
+para por qué no se reconstruyó todavía y cuál sería el camino correcto.
 
 ## Por qué faltan fechas de compra
 
@@ -109,6 +147,9 @@ valor    = suma de positions[].market_value
 ganancia = valor − costo
 ```
 
-Al 2026-08-20: $18.710,36 → $22.908,27 = **+$4.197,92 (+22,4%)**, que coincide al centavo con la
-suma de `unrealized_pnl` que reporta IBKR. Eso es lo que muestra la tarjeta principal del
-Simulador. La fecha solo hace falta para responder "¿y si hubiera comprado SPY?".
+Esto se puede calcular de dos formas equivalentes hoy: agregado, con `DATA.real_gain` (viene
+directo del snapshot, siempre disponible, sin depender de `fetch-positions`); o detallado por
+ticker, con `DATA.positions` una vez que el detalle on-demand llegó (lo que arma la tabla de la
+tarjeta principal del Simulador, no solo el total). La fecha de compra solo hace falta para la
+pregunta aparte de "¿y si hubiera comprado SPY?" — ver más arriba por qué esa comparación ya no
+tiene de dónde salir.

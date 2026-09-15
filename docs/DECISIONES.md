@@ -6,6 +6,23 @@ Por qué el proyecto es como es. Cada entrada dice qué se decidió, por qué, y
 
 ## Producto
 
+### Los dos principios que están por encima de cualquier otro (2026-08-26/28)
+Palabras textuales de Felipe, y valen como filtro para cualquier decisión de acá en adelante, la
+pida quien la pida:
+
+> *"yo no quiero ni por asomo saber el dinero o las tenencias de la gente. cada usuario su
+> mundo."*
+
+> *"si 100% lo más más más importante es la seguridad, la app puede fallar, crashearse, que sea
+> horrible, pero JAMÁS JAMÁS tener un fallo de seguridad que mis clientes o yo mismo perdamos
+> nuestro dinero."*
+
+Ante la duda entre algo más cómodo/lindo y algo más seguro, gana seguro, sin excepción — y esto no
+se relaja porque la app no cobre. Implementación concreta: el servidor (`sync-ibkr`) dejó de
+guardar tenencias/operaciones crudas por usuario, solo agregados; el detalle por ticker que la app
+sigue necesitando se calcula on-demand y nunca se persiste (`fetch-positions`). Detalle completo en
+`HANDOFF.md`.
+
 ### Describir, no prescribir
 La app cuenta cómo está tu cartera; no te dice qué comprar. Ni la app ni quien la programa son
 asesores registrados, y hay un disclaimer explícito en pantalla.
@@ -99,7 +116,30 @@ feature, agregale un assert.**
 ### Verificar producción por ETag
 Vercel devuelve `ETag: W/"<md5>"`. Comparado contra el md5 local, prueba que lo que está online
 es exactamente el archivo revisado. No es paranoia: dos veces un arreglo pareció no funcionar y
-en realidad no había llegado a producción.
+en realidad no había llegado a producción. Una tercera vez, el 2026-09, pasó algo parecido pero
+peor: el commit sí existía, pero se quedó **18 días sin pushear** desde la máquina de Felipe,
+mientras el servidor ya llevaba días sirviendo un shape de datos nuevo que el frontend viejo no
+sabía leer — producción estuvo rota (Posiciones/Simulador/Ideas) todo ese tiempo sin que nadie lo
+notara, porque nadie estaba verificando activamente. Ver `HANDOFF.md`. La lección se refuerza:
+un commit local no es un deploy, y no hay manera de saber que algo se rompió sin mirar
+producción de vez en cuando, no solo después de un cambio.
+
+### El detalle sensible se pide on-demand, nunca se guarda (2026-08-28)
+Cuando el servidor dejó de guardar tenencias crudas por usuario (ver "Producto" arriba) pero el
+frontend seguía necesitando el detalle por ticker para Posiciones/Simulador/Ideas, la salida no
+fue "guardar una versión resumida pero igual persistida" — fue no persistir nada: una Edge
+Function nueva (`fetch-positions`), autenticada con el JWT del propio usuario, calcula el detalle
+contra IBKR en el momento y lo devuelve solo en la respuesta HTTP. El frontend lo cachea en una
+variable de módulo (`positions-detail.js`), nunca en `localStorage` — se pierde a propósito al
+recargar. El costo es que esas pestañas tardan un poco más la primera vez que se abren en cada
+sesión; se aceptó ese costo a cambio de que el dato sensible no exista en ningún lado del lado
+del servidor, ni siquiera un instante.
+
+Requirió confirmar antes algo que estaba sin probar: si el Flex Web Service de IBKR admite
+llamarse directo desde el navegador del usuario (lo que hubiera evitado necesitar un servidor
+intermedio del todo). Se probó en vivo: **no admite CORS** — una llamada `no-cors` da una
+respuesta opaca aunque IBKR sí responda por detrás. Confirma que un servidor intermedio no es
+una opción de diseño, es la única forma de que esto funcione.
 
 ### Los mockups de diseño no se commitean
 `diseno/` está en `.gitignore` por dos razones: Vercel publica como estático **todo** lo que
