@@ -14,7 +14,6 @@ export function renderAll() {
   renderHero();
   renderTiles();
   renderPerfChart();
-  renderBarChart('chart-asset-class', assetClassAllocation());
   renderBarChart('chart-country', DATA.allocation.country);
   renderBarChart('chart-sector', DATA.allocation.sector);
   markStaleAllocation();
@@ -28,8 +27,14 @@ export function renderAll() {
 // Se pide una vez aca (con estado de carga mientras tanto) y se renderizan
 // las cuatro secciones juntas cuando llega, para no disparar cuatro pedidos
 // en paralelo contra IBKR.
+//
+// El grafico de asignacion por clase de activo tambien depende de este
+// detalle (assetClassAllocation() lee DATA.positions) asi que se dibuja aca
+// adentro, no en renderAll(): dibujarlo antes de tener el detalle mostraba
+// solo Efectivo y Dividendos por cobrar, con porcentajes que no sumaban 100%.
 function renderPositionsDependentSections() {
   if (DATA.positions) {
+    renderBarChart('chart-asset-class', assetClassAllocation());
     renderPositions();
     renderTrades();
     renderSimulator();

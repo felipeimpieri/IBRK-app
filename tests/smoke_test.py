@@ -10,7 +10,10 @@ import threading
 from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CHROME_PATH = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+# Sin executable_path fijo: usa el Chromium que "playwright install chromium" ya
+# dejó instalado para este SO (antes apuntaba a un path de Linux a mano, que no
+# existe en Windows -- overrideable con PLAYWRIGHT_CHROME_PATH si hace falta).
+CHROME_PATH = os.environ.get("PLAYWRIGHT_CHROME_PATH")
 FAKE_DATA = json.load(open(os.path.join(ROOT, "tests/fixtures/fake_data.json")))
 
 
@@ -80,10 +83,24 @@ window.__FAKE_DATA__ = %s;
 """ % json.dumps(FAKE_DATA)
 
 
+def _block_real_supabase_sdk(page):
+    # index.html carga el SDK real de Supabase por CDN con un <script> clasico
+    # (bloqueante, antes de los modulos) ademas del mock que pone add_init_script.
+    # Si la red del sandbox llega a jsdelivr.net, ese script real pisa
+    # window.supabase con el cliente real antes de que main.js corra -- la app
+    # termina hablando con Supabase de verdad (sin sesion) en vez de usar el
+    # mock, y se queda en la pantalla de login. El test no puede depender de
+    # que la red este restringida para que el mock sobreviva.
+    page.route("**/supabase-js@2", lambda route: route.abort())
+
+
 def run():
     httpd, BASE = serve(ROOT)
     with sync_playwright() as p:
-        browser = p.chromium.launch(executable_path=CHROME_PATH, headless=True)
+        launch_kwargs = {"headless": True}
+        if CHROME_PATH:
+            launch_kwargs["executable_path"] = CHROME_PATH
+        browser = p.chromium.launch(**launch_kwargs)
 
         # --- Scenario A: fresh user, no profile saved yet -> onboarding must show ---
         page = browser.new_page(viewport={"width": 1280, "height": 900})
@@ -91,6 +108,7 @@ def run():
         page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
         page.on("pageerror", lambda exc: console_errors.append(str(exc)))
         page.add_init_script(INIT_SCRIPT_TEMPLATE)
+        _block_real_supabase_sdk(page)
         page.goto(BASE + "/index.html?onboarded=0")
         page.wait_for_timeout(500)
 
@@ -149,6 +167,7 @@ def run():
         page2.on("console", lambda msg: console_errors2.append(msg.text) if msg.type == "error" else None)
         page2.on("pageerror", lambda exc: console_errors2.append(str(exc)))
         page2.add_init_script(INIT_SCRIPT_TEMPLATE)
+        _block_real_supabase_sdk(page2)
         page2.goto(BASE + "/index.html?onboarded=1")
         page2.wait_for_timeout(500)
 
