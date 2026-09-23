@@ -2,28 +2,65 @@
 
 ## En una frase
 
-Una página estática que se autentica contra Supabase, se trae la última fila de
-`portfolio_snapshots` del usuario logueado, y la dibuja en cuatro pestañas. No hay servidor
-propio, no hay build, no hay framework.
+Una página estática que se autentica contra Supabase, se trae la última fila (minimizada, solo
+agregados) de `portfolio_snapshots` del usuario logueado, pide el detalle por ticker aparte y al
+momento cuando hace falta, y dibuja todo en cuatro pestañas. No hay servidor propio, no hay build,
+no hay framework.
 
 ## Flujo de datos
 
+**Sincronización diaria — lo único que se guarda, y son agregados:**
+
 ```
 IBKR Flex Web Service
-        │  (una vez por día, pg_cron)
+        │  (una vez por día, pg_cron, 10:00 UTC)
         ▼
-Supabase Edge Function  ──►  portfolio_snapshots.data  (JSONB, una fila por sync)
+sync-ibkr (Edge Function)  ──►  computeDerivedShape()  ──►  portfolio_snapshots.data
+                                                              (JSONB minimizado, una fila por sync
+                                                               — sin positions[]/trades[] crudos
+                                                               desde el 2026-08-28, ver docs/DATOS.md)
                                        │
                                        │  select ... order by captured_at desc limit 1
                                        ▼
                              auth.js → setData(...) → state.js
                                        │
                                        ▼
-                             render.js → views/* → DOM
+                             render.js → views/* → DOM   (hero/tiles de Resumen ya se pueden pintar)
 ```
 
-La app **solo lee**. Nunca escribe en `portfolio_snapshots`. Lo único que escribe es el perfil
-del inversor, en la tabla `profiles` (ver `profile.js`).
+**Detalle por posición — a demanda, nunca se guarda:**
+
+```
+render.js → renderPositionsDependentSections()
+                    │  (la primera vez que hace falta detalle por ticker en esta sesión
+                    │   de navegador: Posiciones, Simulador, Ideas)
+                    ▼
+positions-detail.js → ensurePositionsDetail()
+                    │  fetch, con el JWT del propio usuario
+                    ▼
+fetch-positions (Edge Function)  ──►  IBKR Flex Web Service (en el momento, no guarda nada)
+                    │
+                    │  devuelto en la respuesta HTTP, jamás escrito en una tabla
+                    ▼
+positions-detail.js  (cache en memoria de esa pestaña, nunca localStorage)
+                    │
+                    ▼
+setPositionsDetail() → state.js (DATA.positions / DATA.trades) → renderPositionsDependentSections()
+                                                                    se vuelve a llamar → dibuja
+                                                                    Posiciones/Simulador/Ideas
+```
+
+La app **solo lee** de `portfolio_snapshots` y de `fetch-positions`. Nunca escribe en
+`portfolio_snapshots`. Lo único que escribe es el perfil del inversor, en la tabla `profiles`
+(ver `profile.js`), y `fetch-positions` no escribe en ninguna tabla en absoluto — por diseño (ver
+`HANDOFF.md` para el porqué).
+
+**Importante para no reintroducir el bug de privacidad que esto resolvió:** si algún día hace
+falta más detalle por ticker en el snapshot diario (por ejemplo para recalcular `simulator` o
+`allocation.sector`), la respuesta correcta no es volver a guardarlo en `sync-ibkr` — es ampliar
+lo que calcula y devuelve `fetch-positions` on-demand, o agregar un agregado nuevo a
+`computeDerivedShape()` que no exponga el detalle crudo. Ver los dos principios al principio de
+`HANDOFF.md`.
 
 ## Mapa de módulos
 
@@ -47,12 +84,15 @@ graph TD
   profile --> state
   profile --> supabase
   render --> finance[finance.js]
+  render --> posdetail[positions-detail.js]
   render --> state
   render --> ui_charts[ui/charts.js]
   render --> v_resumen[views/resumen.js]
   render --> v_posiciones[views/posiciones.js]
   render --> v_simulador[views/simulador.js]
   render --> v_ideas[views/ideas.js]
+  posdetail --> config
+  posdetail --> supabase
   finance --> state
   supabase --> config
   ui_charts --> config
@@ -73,6 +113,10 @@ graph TD
   v_ideas --> state
 ```
 
+**Nota (2026-08-28):** `positions-detail.js` es el único módulo que le habla directo a una Edge
+Function por `fetch()` en vez de pasar por el cliente de Supabase para datos (sí usa `sb` para
+sacar el JWT de la sesión). Es deliberado — ver `HANDOFF.md`.
+
 **El grafo no tiene ciclos** y todos los módulos son alcanzables desde `main.js`.
 Si agregás un módulo, mantené las dos propiedades.
 
@@ -90,6 +134,7 @@ Si agregás un módulo, mantené las dos propiedades.
 | `profile.js` | 42 | Lee, guarda y aplica el perfil de inversor (tabla `profiles`). |
 | `onboarding.js` | 51 | Pantalla de bienvenida. Solo efectos: registra sus listeners al importarse. |
 | `render.js` | 27 | El orquestador. **Si querés saber qué se dibuja, empezá acá.** |
+| `positions-detail.js` | 30 | Pide el detalle por ticker a `fetch-positions` on-demand, cachea en memoria (nunca disco). Nuevo 2026-08-28. |
 | `ui/theme.js` | 38 | Claro / oscuro / sistema, persistido en `localStorage`. |
 | `ui/tabs.js` | 23 | Pestañas y deep-link por `#hash`. |
 | `ui/screens.js` | 21 | Alterna entre login, onboarding y app. |

@@ -4,6 +4,35 @@ Qué se hizo, cuándo y por qué. Lo más nuevo arriba.
 
 ---
 
+## 2026-08-28 → 2026-09-15 · El servidor deja de guardar tenencias crudas
+
+Decisión de producto de Felipe, antes de sumar amigos reales a la app: *"yo no quiero ni por
+asomo saber el dinero o las tenencias de la gente. cada usuario su mundo."* Detalle completo,
+arquitectura, archivos tocados y un bug encontrado sin arreglar todavía: ver **`HANDOFF.md`** en
+la raíz del repo — no se repite acá para no duplicar y desincronizarse.
+
+Resumen de la cronología, porque importa para entender por qué hizo falta una sesión aparte solo
+para verificar esto:
+
+- **28/08:** `sync-ibkr` pasa a v5 (deja de guardar `positions`/`trades` crudos en
+  `portfolio_snapshots`, solo agregados) y se crea `fetch-positions` (detalle por ticker on-demand,
+  nunca persistido). Confirmado contra la base: todos los snapshots desde este día tienen el shape
+  nuevo, ninguno de los 15 que hay hoy tiene la clave `positions` cruda.
+- **31/08:** se escribe y commitea localmente (`0726271`) el frontend que sabe leer el shape
+  nuevo sin crashear — pero no se pushea todavía.
+- **28/08 → 15/09 (18 días):** producción sigue sirviendo el frontend viejo, que espera
+  `positions`/`trades` en el snapshot. Al no estar más, `renderPositions()`, `renderTrades()` y
+  `renderBenchmarks()` tiran una excepción sin capturar, y como `renderAll()` dibujaba las cuatro
+  pestañas en una función síncrona sin aislar errores, Posiciones/Simulador/Ideas quedan rotas —
+  Resumen sigue andando porque no toca detalle por ticker (aunque con un bug propio en su gráfico
+  de asignación, encontrado recién ahora — ver `HANDOFF.md`).
+- **15/09:** se pushea `0726271`, Vercel despliega solo, se verifica contra producción (el
+  `render.js` servido contiene `renderPositionsDependentSections`, `positions-detail.js` responde
+  200). Ciclo logueado completo todavía sin confirmar.
+
+También se borraron 29 filas viejas de `portfolio_snapshots` con el shape crudo anterior (decisión
+explícita de Felipe, sin exportar) — verificado que no quedó ninguna.
+
 ## 2026-08-21 · Refactor a módulos y orden del repo
 
 `index.html` tenía **1.689 líneas** con todo adentro: markup, 390 de CSS y 913 de JS.
